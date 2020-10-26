@@ -6,8 +6,10 @@
 #include <math.h>
 #include <string.h>
 #include "scalpa.h"
+#include "linked-list.h"
 
-int c = 0; // DEBUG A SUPPRIMER
+#define DEFAULT_TABLE_SIZE 1024 // define if header file later
+int c = 0; // DEBUG DELETE LATER
 
 int yylex(void);
 
@@ -15,15 +17,78 @@ int yylex_destroy(void);
 
 void yyerror(const char * msg);
 
-noreturn void handle_error(const char * msg, ...);
+/* operation on expr */
 
+/*
+ * Display an element of type cste_value_t
+ * print its type and value
+ */
 void display_cste(struct cste_value_t cste);
 
+/*
+ * Compute and return the result of : expr1 opb expr2 
+ * exit if expr1 or expr2 have a type that doesn't support opb
+ * example : string + string, true < false, int xor int
+ * exit if expr1 and expr2 have different type
+ */
 struct cste_value_t compute_opb(struct cste_value_t expr1, 
                                 struct cste_value_t expr2,
                                 int opb);
 
+/*
+ * Compute and return the result of : opu expr
+ * exit if expr have a type that doesn't support opu
+ * example : opu string, - bool, not int
+ */
 struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
+
+/* IDENTIFIER atomic type*/
+
+void copy_atomic_type(struct atomic_type_t *origin, struct atomic_type_t *dest){
+    dest->type = origin->type;
+    dest->initialiazed = origin->initialiazed;
+    dest->identifier_length = origin->identifier_length;
+    dest->identifier = malloc(origin->identifier_length);
+    strncpy(dest->identifier , origin->identifier, origin->identifier_length);
+}
+
+/*
+ * return index of identifier in the table
+ * error if var already declared
+ * TODO remove static, table need to be global
+ */
+int add_new_identifier_atomic_type(struct atomic_type_t var) {
+    static int malloc_size = DEFAULT_TABLE_SIZE;
+    static int last_identifier_index = 0;
+    static struct atomic_type_t* identifier_table;
+    // if the table is not initialized
+    if (last_identifier_index == 0) {
+        identifier_table = malloc(malloc_size * sizeof(struct atomic_type_t));
+        last_identifier_index ++;
+        copy_atomic_type(&var, &identifier_table[0]);
+        return 0;
+    }
+    // search the name in the table, error if it's already declared
+    for (int i = 0; i < last_identifier_index; i++) {
+        if (var.identifier_length == identifier_table[i].identifier_length &&
+            !strncmp(var.identifier,
+            identifier_table[i].identifier,
+            var.identifier_length)) {
+                handle_error("identifier [%s] already declared.", 
+                    var.identifier_length);
+        }
+    }
+    // realloc if last_identifier_index exceed the current table size
+    if (malloc_size <= last_identifier_index + 1) {
+        malloc_size += DEFAULT_TABLE_SIZE;
+        identifier_table = realloc(identifier_table,
+            malloc_size * sizeof(struct atomic_type_t));
+    }
+    copy_atomic_type(&var, &identifier_table[last_identifier_index]);
+    last_identifier_index ++;
+    return last_identifier_index - 1;
+}
+
 
 %}
 %code requires {
@@ -33,13 +98,18 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
 %union {
     struct cste_value_t cste;
     int ival;
+    char *strval;
 }
 
 %token <cste> CTE
-%token IDENT
+%token <strval> IDENT
 %type <cste> expr
 %type <ival> opb opu
-%token '(' ')' '[' ']' ',' ';' ASSIGNMENT
+%type <ival> atomictype integer typename
+
+%token '(' ')' '[' ']' ',' ';' ':' ASSIGNMENT
+%token VAR UNIT_TYPE BOOL_TYPE INT_TYPE
+%token OF ARRAY RANGELIST_SEPARATOR PROGRAM
 
 %left OPB
 %left OPU
@@ -49,11 +119,42 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
 %left OPB_PLUS OPB_OR OPB_XOR
 %left OPB_L_EQ OPB_L OPB_G_EQ OPB_G OPB_EQ OPB_DIFF
 
-%start test
+%start test1
 
 %%
-test : /* empty */ 
-    | test expr ';'   {printf("instruction %i : \n", c);display_cste($2);c++;}
+test1 : /* empty */ 
+    | test1 expr ';'   {printf("instruction %i : \n", c);display_cste($2);c++;}
+
+program : PROGRAM IDENT vardecllist {printf("TODO  prgm name\n");}
+
+vardecllist : /* empty */ 
+    | varsdecl
+    | varsdecl ';' vardecllist
+
+varsdecl : VAR identlist ':' typename {// empty linked list
+    // while loop create ident and call func
+    add_new_identifier_atomic_type();}
+
+identlist : IDENT {printf("TODO linked list\n")}
+    | IDENT ',' identlist {printf("TODO linked list\n")}
+
+typename : atomictype {$$ = $1;}
+    | arraytype {printf("TODO arraytype\n");}
+
+atomictype : UNIT_TYPE  {$$ = UNIT_A;}
+    | BOOL_TYPE         {$$ = BOOL_A;}
+    | INT_TYPE          {$$ = INT_A;}
+
+arraytype : ARRAY '[' rangelist ']' OF atomictype
+
+rangelist : integer RANGELIST_SEPARATOR integer 
+    | integer RANGELIST_SEPARATOR integer ',' rangelist
+
+integer : expr {printf("TODO check if int\n");}
+
+
+
+
 
 exprlist : expr               {printf("TODO expr\n");}
     | expr ',' exprlist       {printf("TODO expr , exprlist\n");}
@@ -255,10 +356,24 @@ int main (void) {
 }
 
 /* TODO
-alloc error
-cste string regular expression
-free mermory error ???
-// A REFAIRE
-// \"(([^"])|(\\"))*[^\\]\"
-// \"(((\\\")|[^\"]))*\"
+
+@brief @param etc each function (doxygen)
+
+comment todo (* comment *)
+
+test files for operation (check for every operator)
+
+free malloc sconst
+
+alloc error CHECK macro
+
+cste string regular expression bug for  "//" valid, "/" not valid, add single 
+quote example " '"' " is a valid syntaxe
+
+free mermory if exit ???
+
+delete DEBUG comment and printf
+
+Do a real README file
+add option
 */

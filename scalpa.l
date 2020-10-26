@@ -36,7 +36,13 @@
 "]"             return ']';
 ","             return ',';
 ";"             return ';';
+":"             return ':';
 ":="            return ASSIGNMENT;
+"var"           return VAR;
+"of"            return OF;
+"array"         return ARRAY;
+".."            return RANGELIST_SEPARATOR;
+"program"       return PROGRAM;
 
 "+"             return OPB_PLUS;
 "-"             return OP_MINUS;
