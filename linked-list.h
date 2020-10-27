@@ -15,10 +15,16 @@ struct linked_list * list_init(void);
 
 void list_free(struct linked_list *list);
 
-void list_push(struct linked_list *list, void *x);
+void list_push(struct linked_list *list, void *x, int size_of_data);
 
-void * list_pop(struct linked_list *list);
+void * list_get_first(struct linked_list *list);
 
-int len_list(struct linked_list *list);
+/*
+ * Don't return the data of the popped element, use list_get_first()
+ * for that (or list->first->data)
+ */
+void list_pop(struct linked_list *list);
+
+int list_len(struct linked_list *list);
 
 #endif

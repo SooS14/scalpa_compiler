@@ -1,10 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include "linked-list.h"
 #include "scalpa.h"
 
 struct linked_list * list_init(void) {
-    struct linked_list *list = malloc(sizeof(struct linked_list *));
+    struct linked_list *list = malloc(sizeof(struct linked_list));
     list->length = 0;
     list->first = NULL;
     return list;
@@ -22,38 +23,47 @@ void list_free(struct linked_list *list) {
     free(list);
 }
 
-void list_push(struct linked_list *list, void *x) {
+void list_push(struct linked_list *list, void *x, int size_of_data) {
     if (list == NULL) {
         handle_error("list_push() can't push an element to a NULL\
          pointer\n");
     }
     struct node *new_element = malloc(sizeof(struct node));
     list->length ++;
-    new_element = malloc(sizeof (struct node));
-    new_element->data = x;
+    new_element->data = malloc(size_of_data);
+    for (int i = 0; i < size_of_data; i++) {
+        *((uint8_t *)(new_element->data + i)) = *((uint8_t *)(x + i));
+    }
     new_element->next = list->first;
     list->first = new_element;
 }
 
-void * list_pop(struct linked_list *list) {
+void * list_get_first(struct linked_list *list) {
+    if (list == NULL) {
+        handle_error("list_get_first() can't get data of first element of a\
+         NULL pointer\n");
+    }
+    return list->first->data;
+}
+
+void list_pop(struct linked_list *list) {
     if (list == NULL) {
         handle_error("list_pop() can't pop an element from a NULL\
          pointer\n");
     }
     if (list->length == 0) {
-            return NULL;
+            return;
     }
     struct node *first = list->first;
     list->length --;
-    void *x = first->data;
     list->first = first->next;
+    free(first->data);
     free(first);
-    return x;
 }
 
-int len_list(struct linked_list *list) {
+int list_len(struct linked_list *list) {
     if (list == NULL) {
-        handle_error("len_list() can't get length of a NULL pointer\n");
+        handle_error("list_len() can't get length of a NULL pointer\n");
     }
     return list->length;
 }

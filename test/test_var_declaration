@@ -1,0 +1,2 @@
+program TEST
+var test1, test2 , test3 ,vartest1,vartest2: int;
