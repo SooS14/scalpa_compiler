@@ -8,10 +8,9 @@
 #include "scalpa.h"
 #include "linked-list.h"
 
-#define DEFAULT_TABLE_SIZE 1024 // define if header file later
-#define MAX
-
 int c = 0; // DEBUG DELETE LATER
+
+struct symbol_table_t symbol_table;
 
 int yylex(void);
 
@@ -55,15 +54,18 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
 /*                       variable declaration                                 */
 /* -------------------------------------------------------------------------- */
 
-void copy_atomic_type(struct atomic_type_t *origin, struct atomic_type_t *dest);
+void init_symbol_table();
+
+void free_symbol_table();
+
+void display_symbol_table();
+
+void copy_symbol(struct symbol_t *origin, struct symbol_t *dest);
 
 /*
- * IMPROVMENT TODO
- * return index of identifier in the table
- * error if var already declared
- * TODO remove static, table need to be global
+ * fusion of this function action of vardelc TODO, copy_symbol may be useless
  */
-int add_new_identifier_atomic_type(struct atomic_type_t var);
+void add_new_symbol(struct symbol_t var);
 
 %}
 %code requires {
@@ -76,14 +78,16 @@ int add_new_identifier_atomic_type(struct atomic_type_t var);
     int ival;
     char *strval;
     struct linked_list *list_u;
+    struct typename_t typename_u;
 }
 
 %token <cste> CTE
 %token <strval> IDENT
 %type <cste> expr
 %type <ival> opb opu
-%type <ival> atomictype integer typename
-%type <list_u> identlist
+%type <ival> atomictype integer
+%type <typename_u> typename arraytype
+%type <list_u> identlist rangelist
 
 %token '(' ')' '[' ']' ',' ';' ':' ASSIGNMENT
 %token VAR UNIT_TYPE BOOL_TYPE INT_TYPE
@@ -112,14 +116,39 @@ vardecllist : /* empty */
 
 varsdecl :
     VAR identlist ':' typename {
-        // empty linked list
-        // while loop create ident and call func
-        //add_new_identifier_atomic_type();
         while (list_len($2) != 0) {
-            printf("variable : [%s] type [%i]\n",(char *)list_get_first($2),$4);
+            char *new_ident_name = (char *)list_get_first($2);
+            struct symbol_t new_symbol;
+            new_symbol.initialiazed = 0;
+            new_symbol.ident_length = strlen(new_ident_name)+1;
+            new_symbol.ident = new_ident_name;
+            new_symbol.atomic_type = $4.atomic_type;
+            new_symbol.symbol_type = $4.symbol_type;
+            if (new_symbol.symbol_type == ARRAY_TYPE) {
+                new_symbol.len_range_list = list_len($4.rangelist)/2;
+                new_symbol.rangelist = 
+                    malloc(new_symbol.len_range_list * sizeof(int[2]));
+                int i = 0;
+                struct node *temp_node =  $4.rangelist->first;
+                while (temp_node != NULL) {
+                    new_symbol.rangelist[i][0] = *(int*)temp_node->data;
+                    temp_node = temp_node->next;
+                    new_symbol.rangelist[i][1] = *(int*)temp_node->data;
+                    temp_node = temp_node->next;
+                    i++;
+                }
+            }
+            else {
+                new_symbol.len_range_list = 0;
+                new_symbol.rangelist = NULL;
+            }
+            add_new_symbol(new_symbol);
             list_pop($2);
         }
         list_free($2);
+        if ($4.symbol_type == ARRAY_TYPE) {
+            list_free($4.rangelist);
+        }
     }
 
 identlist :
@@ -135,8 +164,8 @@ identlist :
     }
 
 typename :
-      atomictype        {$$ = $1;}
-    | arraytype         {printf("TODO arraytype\n");}
+      atomictype        {$$.symbol_type = ATOMIC_TYPE; $$.atomic_type = $1;}
+    | arraytype         {$$ = $1;}
 
 atomictype :
       UNIT_TYPE         {$$ = VOID_A;}
@@ -144,14 +173,46 @@ atomictype :
     | INT_TYPE          {$$ = INT_A;}
 
 arraytype :
-    ARRAY '[' rangelist ']' OF atomictype
+    ARRAY '[' rangelist ']' OF atomictype {
+        $$.symbol_type = ARRAY_TYPE;
+        $$.atomic_type = $6;
+        $$.rangelist = $3;
+    }
 
 rangelist :
-      integer RANGELIST_SEPARATOR integer 
-    | integer RANGELIST_SEPARATOR integer ',' rangelist
+      integer RANGELIST_SEPARATOR integer {
+            if ($1 > $3) {
+                handle_error("[%i..%i], invalid rangelist (%i > %i)",
+                    $1, $3, $1, $3);
+            }
+            $$ = list_init();
+            int x1 = $1;
+            int x2 = $3;
+            list_push($$, &x2, sizeof(int));
+            list_push($$, &x1, sizeof(int));
+      }
+    | integer RANGELIST_SEPARATOR integer ',' rangelist {
+            if ($1 > $3) {
+                handle_error("[%i..%i], invalid rangelist (%i > %i)",
+                    $1, $3, $1, $3);
+            }
+            $$ = $5;
+            int x1 = $1;
+            int x2 = $3;
+            list_push($$, &x2, sizeof(int));
+            list_push($$, &x1, sizeof(int));
+      }
 
 integer :
-    expr {printf("TODO check if int\n");}
+    expr {
+        if ($1.type == INT) {
+            $$ = $1.val.iconst;
+        }
+        else {
+            handle_error("elements of a rangelist for array declaration\
+ must be integers\n");
+        }
+    }
 
 
 
@@ -356,71 +417,130 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu) {
 
 /* -------------------------------------------------------------------------- */
 
-void copy_atomic_type(struct atomic_type_t *origin, struct atomic_type_t *dest){
-    dest->type = origin->type;
-    dest->initialiazed = origin->initialiazed;
-    dest->identifier_length = origin->identifier_length;
-    dest->identifier = malloc(origin->identifier_length);
-    strncpy(dest->identifier , origin->identifier, origin->identifier_length);
+void init_symbol_table() {
+    symbol_table.table_size = INIT_TABLE_SIZE;
+    symbol_table.last_ident_index = 0;
+    symbol_table.symbols = malloc(INIT_TABLE_SIZE * sizeof(struct symbol_t));
 }
 
-int add_new_identifier_atomic_type(struct atomic_type_t var) {
-    static int malloc_size = DEFAULT_TABLE_SIZE;
-    static int last_identifier_index = 0;
-    static struct atomic_type_t* identifier_table;
-    // if the table is not initialized
-    if (last_identifier_index == 0) {
-        identifier_table = malloc(malloc_size * sizeof(struct atomic_type_t));
-        last_identifier_index ++;
-        copy_atomic_type(&var, &identifier_table[0]);
-        return 0;
-    }
-    // search the name in the table, error if it's already declared
-    for (int i = 0; i < last_identifier_index; i++) {
-        if (var.identifier_length == identifier_table[i].identifier_length &&
-            !strncmp(var.identifier,
-            identifier_table[i].identifier,
-            var.identifier_length)) {
-                handle_error("identifier [%s] already declared.", 
-                    var.identifier_length);
+void free_symbol_table() {
+    for (int i = 0; i < symbol_table.last_ident_index; i++) {
+        free(symbol_table.symbols[i].ident);
+        if (symbol_table.symbols[i].rangelist != NULL) {
+            free(symbol_table.symbols[i].rangelist);
         }
     }
-    // realloc if last_identifier_index exceed the current table size
-    if (malloc_size <= last_identifier_index + 1) {
-        malloc_size += DEFAULT_TABLE_SIZE;
-        identifier_table = realloc(identifier_table,
-            malloc_size * sizeof(struct atomic_type_t));
+    free(symbol_table.symbols);
+}
+
+void display_symbol_table() {
+    printf("\nTABLE OF SYMBOLS : (%i symbols in table)\n\n", 
+        symbol_table.last_ident_index); 
+        // 1 symbol no "s", 0 return and print that the table is empty
+    int n = floor(log10(symbol_table.last_ident_index)) + 1;
+    (n + 3 < 8) ? (n = 8) : (n += 3); // for column alignment
+    for (int j = 0; j < n; j++) {
+        printf(" ");
     }
-    copy_atomic_type(&var, &identifier_table[last_identifier_index]);
-    last_identifier_index ++;
-    return last_identifier_index - 1;
+    printf("| atomic_type | identifier | rangelist\r| index\n");
+    for (int i = 0; i < symbol_table.last_ident_index; i ++) {
+        char atomic_type[5];
+        switch (symbol_table.symbols[i].atomic_type) {
+            case VOID_A : strncpy(atomic_type, "unit", 5); break;
+            case BOOL_A : strncpy(atomic_type, "bool", 5); break;
+            case INT_A  : strncpy(atomic_type, "int ", 5); break;
+            default        : strncpy(atomic_type, "??? ", 5); break;
+        }
+        for (int j = 0; j < n; j++) {
+            printf(" ");
+        }
+        printf("| %s        | %s", atomic_type, 
+            symbol_table.symbols[i].ident);
+
+        if (symbol_table.symbols[i].symbol_type == ARRAY_TYPE) {
+            printf(" ( rangelist[");
+            for (int j = 0; j < symbol_table.symbols[i].len_range_list; j++) {
+                printf("%i..%i,", symbol_table.symbols[i].rangelist[j][0],
+                    symbol_table.symbols[i].rangelist[j][1]);
+            }
+            printf("] )");
+        }
+        printf("\r| %i\n", i);
+        // display ranglist struct linked_list *rangelist;
+    }
+}
+
+void copy_symbol(struct symbol_t *origin, struct symbol_t *dest){
+    dest->symbol_type = origin->symbol_type;
+    dest->atomic_type = origin->atomic_type;
+    dest->initialiazed = origin->initialiazed;
+    dest->ident_length = origin->ident_length;
+    dest->ident = malloc(origin->ident_length);
+    strncpy(dest->ident , origin->ident, origin->ident_length);
+    dest->len_range_list = origin->len_range_list;
+    dest->rangelist = origin->rangelist;
+}
+
+void add_new_symbol(struct symbol_t var) {
+    // search the name in the table, error if it's already declared
+    for (int i = 0; i < symbol_table.last_ident_index; i++) {
+        if (var.ident_length == symbol_table.symbols[i].ident_length &&
+            !strncmp(var.ident,
+             symbol_table.symbols[i].ident,
+             var.ident_length)) {
+                handle_error("identifier [%s] already declared.", 
+                    var.ident);
+        }
+    }
+    // realloc if last_ident_index exceed the current table size
+    if (symbol_table.table_size <= symbol_table.last_ident_index + 1) {
+        symbol_table.table_size += INIT_TABLE_SIZE;
+        symbol_table.symbols = realloc(symbol_table.symbols,
+            symbol_table.table_size * sizeof(struct symbol_t));
+    }
+    copy_symbol(&var, &symbol_table.symbols[symbol_table.last_ident_index]);
+    symbol_table.last_ident_index ++;
 }
 
 int main (void) {
+    init_symbol_table();
     int c = yyparse();
+    display_symbol_table(); // TODO only if option
+    free_symbol_table();
     yylex_destroy();
     return c;
 }
 
 /* TODO
 
+!IMPORTANT : varsdecl and add_symbol redondant 
+!IMPORTANT : test file for all operators
+!IMPORTANT : test file for var delc
+!IMPORTANT : replace all strcpy by strncpy
+!IMPORTANT : %union rename all type by type_u
+
+put all function associated wit var declaration in a header file avec split code
+
+options todo
+
+rename linked_list by linked_list_t
+
 @brief @param etc each function (doxygen)
 
-comment todo (* comment *)
+scalpa comment todo (* comment *)
 
 test files for operation (check for every operator)
-
-free malloc sconst
 
 alloc error CHECK macro
 
 cste string regular expression bug for  "//" valid, "/" not valid, add single 
 quote example " '"' " is a valid syntaxe
 
-free mermory if exit ???
+free mermory if EXIT_FAILURE or syntaxe error ???
 
 delete DEBUG comment and printf
 
 Do a real README file
 add option
+
 */

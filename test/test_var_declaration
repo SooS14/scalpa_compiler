@@ -1,2 +1,10 @@
 program TEST
-var test1, test2 , test3 ,vartest1,vartest2: int;
+    var test1, test2 , test3 ,vartest1,vartest2: int;
+    var b1 : bool;
+    var b11, b2, b3, b4 : bool;
+    var voidvar, voidvar2 : unit;
+    var testarray1 : array [1..5] of int;
+    var testarray2,testarray3 : array[-4..4, 0..10] of int;
+    var arraylarge : array[-4..4, 0..10, 0..10, 0..10] of unit;
+    var arraytest,testarr : array[-4..4] of bool;
+    var last_var1, last_var2 : unit;

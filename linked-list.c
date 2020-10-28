@@ -26,7 +26,7 @@ void list_free(struct linked_list *list) {
 void list_push(struct linked_list *list, void *x, int size_of_data) {
     if (list == NULL) {
         handle_error("list_push() can't push an element to a NULL\
-         pointer\n");
+ pointer\n");
     }
     struct node *new_element = malloc(sizeof(struct node));
     list->length ++;
@@ -41,7 +41,7 @@ void list_push(struct linked_list *list, void *x, int size_of_data) {
 void * list_get_first(struct linked_list *list) {
     if (list == NULL) {
         handle_error("list_get_first() can't get data of first element of a\
-         NULL pointer\n");
+ NULL pointer\n");
     }
     return list->first->data;
 }
@@ -49,7 +49,7 @@ void * list_get_first(struct linked_list *list) {
 void list_pop(struct linked_list *list) {
     if (list == NULL) {
         handle_error("list_pop() can't pop an element from a NULL\
-         pointer\n");
+ pointer\n");
     }
     if (list->length == 0) {
             return;
