@@ -11,7 +11,7 @@
     struct cste_value_t temp;
     temp.type = INT;
     temp.val.iconst = atoi(yytext);
-    yylval.cste = temp;
+    yylval.cst_u = temp;
     return CTE;
 }
 \"(((\\\")|[^\"]))*\" {
@@ -20,21 +20,21 @@
     temp.val.sconst = malloc(yyleng + 1);
     strncpy(temp.val.sconst , yytext, yyleng);
     temp.val.sconst[yyleng] = '\0';
-    yylval.cste = temp;
+    yylval.cst_u = temp;
     return CTE;
 }
 "true" {
     struct cste_value_t temp;
     temp.type = BOOL;
     temp.val.bconst = 1;
-    yylval.cste = temp;
+    yylval.cst_u = temp;
     return CTE;
 }
 "false" {
     struct cste_value_t temp;
     temp.type = BOOL;
     temp.val.bconst = 0;
-    yylval.cste = temp;
+    yylval.cst_u = temp;
     return CTE;
 }
 
@@ -72,9 +72,9 @@
 "not"           return OPU_NOT;
 
 [a-zA-Z_][a-zA-Z_1-9]* {
-    yylval.strval = malloc(yyleng+1);
-    strncpy(yylval.strval , yytext, yyleng);
-    yylval.strval[yyleng] = '\0';
+    yylval.str_u = malloc(yyleng+1);
+    strncpy(yylval.str_u , yytext, yyleng);
+    yylval.str_u[yyleng] = '\0';
     return IDENT;
 };
 

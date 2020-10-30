@@ -1,10 +1,13 @@
 prefixe=scalpa
 
-all: y.tab.o lex.yy.o linked-list.o
-	gcc y.tab.o lex.yy.o linked-list.o -lfl -o $(prefixe) -lm
+all: y.tab.o lex.yy.o linked_list.o var_declaration.o
+	gcc y.tab.o lex.yy.o linked_list.o var_declaration.o -lfl -o $(prefixe) -lm
 
-linked-list.o: linked-list.c linked-list.h
-	gcc -c linked-list.c -o linked-list.o
+var_declaration.o: var_declaration.c var_declaration.h
+	gcc -c var_declaration.c -o var_declaration.o
+
+linked_list.o: linked_list.c linked_list.h
+	gcc -c linked_list.c -o linked_list.o
 	
 y.tab.o: $(prefixe).y
 	yacc -d -g -v $(prefixe).y -Wno-yacc

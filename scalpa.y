@@ -6,9 +6,8 @@
 #include <math.h>
 #include <string.h>
 #include "scalpa.h"
-#include "linked-list.h"
-
-int c = 0; // DEBUG DELETE LATER
+#include "linked_list.h"
+#include "var_declaration.h"
 
 struct symbol_table_t symbol_table;
 
@@ -50,42 +49,26 @@ struct cste_value_t compute_opb(struct cste_value_t expr1,
  */
 struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
 
-/* -------------------------------------------------------------------------- */
-/*                       variable declaration                                 */
-/* -------------------------------------------------------------------------- */
-
-void init_symbol_table();
-
-void free_symbol_table();
-
-void display_symbol_table();
-
-void copy_symbol(struct symbol_t *origin, struct symbol_t *dest);
-
-/*
- * fusion of this function action of vardelc TODO, copy_symbol may be useless
- */
-void add_new_symbol(struct symbol_t var);
-
 %}
 %code requires {
     #include "scalpa.h"
-    #include "linked-list.h"
+    #include "linked_list.h"
+    #include "var_declaration.h"
 }
 
 %union {
-    struct cste_value_t cste;
-    int ival;
-    char *strval;
+    struct cste_value_t cst_u;
+    int int_u;
+    char *str_u;
     struct linked_list *list_u;
     struct typename_t typename_u;
 }
 
-%token <cste> CTE
-%token <strval> IDENT
-%type <cste> expr
-%type <ival> opb opu
-%type <ival> atomictype integer
+%token <cst_u> CTE
+%token <str_u> IDENT
+%type <cst_u> expr
+%type <int_u> opb opu
+%type <int_u> atomictype integer
 %type <typename_u> typename arraytype
 %type <list_u> identlist rangelist
 
@@ -105,7 +88,7 @@ void add_new_symbol(struct symbol_t var);
 
 %%
 test1 : /* empty */
-    | test1 expr ';' {printf("instruction %i : \n", c);display_cste($2);c++;}
+    | test1 expr ';' {printf("instruction : \n");display_cste($2);}
 
 program :
     PROGRAM IDENT vardecllist {printf("TODO prgm name\n");free($2);}
@@ -115,41 +98,7 @@ vardecllist : /* empty */
     | varsdecl ';' vardecllist
 
 varsdecl :
-    VAR identlist ':' typename {
-        while (list_len($2) != 0) {
-            char *new_ident_name = (char *)list_get_first($2);
-            struct symbol_t new_symbol;
-            new_symbol.initialiazed = 0;
-            new_symbol.ident_length = strlen(new_ident_name)+1;
-            new_symbol.ident = new_ident_name;
-            new_symbol.atomic_type = $4.atomic_type;
-            new_symbol.symbol_type = $4.symbol_type;
-            if (new_symbol.symbol_type == ARRAY_TYPE) {
-                new_symbol.len_range_list = list_len($4.rangelist)/2;
-                new_symbol.rangelist = 
-                    malloc(new_symbol.len_range_list * sizeof(int[2]));
-                int i = 0;
-                struct node *temp_node =  $4.rangelist->first;
-                while (temp_node != NULL) {
-                    new_symbol.rangelist[i][0] = *(int*)temp_node->data;
-                    temp_node = temp_node->next;
-                    new_symbol.rangelist[i][1] = *(int*)temp_node->data;
-                    temp_node = temp_node->next;
-                    i++;
-                }
-            }
-            else {
-                new_symbol.len_range_list = 0;
-                new_symbol.rangelist = NULL;
-            }
-            add_new_symbol(new_symbol);
-            list_pop($2);
-        }
-        list_free($2);
-        if ($4.symbol_type == ARRAY_TYPE) {
-            list_free($4.rangelist);
-        }
-    }
+    VAR identlist ':' typename {add_symbol_list($2, $4);}
 
 identlist :
     IDENT {
@@ -164,13 +113,13 @@ identlist :
     }
 
 typename :
-      atomictype        {$$.symbol_type = ATOMIC_TYPE; $$.atomic_type = $1;}
-    | arraytype         {$$ = $1;}
+      atomictype {$$.symbol_type = ATOMIC_TYPE; $$.atomic_type = $1;}
+    | arraytype  {$$ = $1;}
 
 atomictype :
-      UNIT_TYPE         {$$ = VOID_A;}
-    | BOOL_TYPE         {$$ = BOOL_A;}
-    | INT_TYPE          {$$ = INT_A;}
+      UNIT_TYPE  {$$ = VOID_A;}
+    | BOOL_TYPE  {$$ = BOOL_A;}
+    | INT_TYPE   {$$ = INT_A;}
 
 arraytype :
     ARRAY '[' rangelist ']' OF atomictype {
@@ -181,26 +130,26 @@ arraytype :
 
 rangelist :
       integer RANGELIST_SEPARATOR integer {
-            if ($1 > $3) {
-                handle_error("[%i..%i], invalid rangelist (%i > %i)",
-                    $1, $3, $1, $3);
-            }
-            $$ = list_init();
-            int x1 = $1;
-            int x2 = $3;
-            list_push($$, &x2, sizeof(int));
-            list_push($$, &x1, sizeof(int));
+        if ($1 > $3) {
+            handle_error("[%i..%i], invalid rangelist (%i > %i)",
+                $1, $3, $1, $3);
+        }
+        $$ = list_init();
+        int x1 = $1;
+        int x2 = $3;
+        list_push($$, &x2, sizeof(int));
+        list_push($$, &x1, sizeof(int));
       }
     | integer RANGELIST_SEPARATOR integer ',' rangelist {
-            if ($1 > $3) {
-                handle_error("[%i..%i], invalid rangelist (%i > %i)",
-                    $1, $3, $1, $3);
-            }
-            $$ = $5;
-            int x1 = $1;
-            int x2 = $3;
-            list_push($$, &x2, sizeof(int));
-            list_push($$, &x1, sizeof(int));
+        if ($1 > $3) {
+            handle_error("[%i..%i], invalid rangelist (%i > %i)",
+                $1, $3, $1, $3);
+        }
+        $$ = $5;
+        int x1 = $1;
+        int x2 = $3;
+        list_push($$, &x2, sizeof(int));
+        list_push($$, &x1, sizeof(int));
       }
 
 integer :
@@ -213,8 +162,6 @@ integer :
  must be integers\n");
         }
     }
-
-
 
 exprlist :
       expr                    {printf("TODO expr\n");}
@@ -260,6 +207,7 @@ noreturn void handle_error(const char * msg, ...) {
     va_list ap;
 
     va_start(ap, msg);
+    vfprintf(stderr, "error : ", ap);
     vfprintf(stderr, msg, ap);
     fprintf(stderr, "\n");
     va_end(ap);
@@ -305,9 +253,9 @@ struct cste_value_t compute_opb(struct cste_value_t expr1,
     if (expr1.type == STRING || expr2.type == STRING) {
         handle_error("No operation allowed for constant string");
     }
-    if (expr1.type != expr1.type) {
-        handle_error("No operation allowed betwwen int constant and bool \
-         constant : expr1 type %s and expr2 type %s", 
+    if (expr1.type != expr2.type) {
+        handle_error("No operation allowed between int constant and bool\
+ constant : expr1 is type [%s] and expr2 is type [%s]", 
         expr1.type == INT ? "int" : "bool", expr2.type == INT ? "int" : "bool");
     }
     struct cste_value_t result;
@@ -417,91 +365,6 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu) {
 
 /* -------------------------------------------------------------------------- */
 
-void init_symbol_table() {
-    symbol_table.table_size = INIT_TABLE_SIZE;
-    symbol_table.last_ident_index = 0;
-    symbol_table.symbols = malloc(INIT_TABLE_SIZE * sizeof(struct symbol_t));
-}
-
-void free_symbol_table() {
-    for (int i = 0; i < symbol_table.last_ident_index; i++) {
-        free(symbol_table.symbols[i].ident);
-        if (symbol_table.symbols[i].rangelist != NULL) {
-            free(symbol_table.symbols[i].rangelist);
-        }
-    }
-    free(symbol_table.symbols);
-}
-
-void display_symbol_table() {
-    printf("\nTABLE OF SYMBOLS : (%i symbols in table)\n\n", 
-        symbol_table.last_ident_index); 
-        // 1 symbol no "s", 0 return and print that the table is empty
-    int n = floor(log10(symbol_table.last_ident_index)) + 1;
-    (n + 3 < 8) ? (n = 8) : (n += 3); // for column alignment
-    for (int j = 0; j < n; j++) {
-        printf(" ");
-    }
-    printf("| atomic_type | identifier | rangelist\r| index\n");
-    for (int i = 0; i < symbol_table.last_ident_index; i ++) {
-        char atomic_type[5];
-        switch (symbol_table.symbols[i].atomic_type) {
-            case VOID_A : strncpy(atomic_type, "unit", 5); break;
-            case BOOL_A : strncpy(atomic_type, "bool", 5); break;
-            case INT_A  : strncpy(atomic_type, "int ", 5); break;
-            default        : strncpy(atomic_type, "??? ", 5); break;
-        }
-        for (int j = 0; j < n; j++) {
-            printf(" ");
-        }
-        printf("| %s        | %s", atomic_type, 
-            symbol_table.symbols[i].ident);
-
-        if (symbol_table.symbols[i].symbol_type == ARRAY_TYPE) {
-            printf(" ( rangelist[");
-            for (int j = 0; j < symbol_table.symbols[i].len_range_list; j++) {
-                printf("%i..%i,", symbol_table.symbols[i].rangelist[j][0],
-                    symbol_table.symbols[i].rangelist[j][1]);
-            }
-            printf("] )");
-        }
-        printf("\r| %i\n", i);
-        // display ranglist struct linked_list *rangelist;
-    }
-}
-
-void copy_symbol(struct symbol_t *origin, struct symbol_t *dest){
-    dest->symbol_type = origin->symbol_type;
-    dest->atomic_type = origin->atomic_type;
-    dest->initialiazed = origin->initialiazed;
-    dest->ident_length = origin->ident_length;
-    dest->ident = malloc(origin->ident_length);
-    strncpy(dest->ident , origin->ident, origin->ident_length);
-    dest->len_range_list = origin->len_range_list;
-    dest->rangelist = origin->rangelist;
-}
-
-void add_new_symbol(struct symbol_t var) {
-    // search the name in the table, error if it's already declared
-    for (int i = 0; i < symbol_table.last_ident_index; i++) {
-        if (var.ident_length == symbol_table.symbols[i].ident_length &&
-            !strncmp(var.ident,
-             symbol_table.symbols[i].ident,
-             var.ident_length)) {
-                handle_error("identifier [%s] already declared.", 
-                    var.ident);
-        }
-    }
-    // realloc if last_ident_index exceed the current table size
-    if (symbol_table.table_size <= symbol_table.last_ident_index + 1) {
-        symbol_table.table_size += INIT_TABLE_SIZE;
-        symbol_table.symbols = realloc(symbol_table.symbols,
-            symbol_table.table_size * sizeof(struct symbol_t));
-    }
-    copy_symbol(&var, &symbol_table.symbols[symbol_table.last_ident_index]);
-    symbol_table.last_ident_index ++;
-}
-
 int main (void) {
     init_symbol_table();
     int c = yyparse();
@@ -513,34 +376,29 @@ int main (void) {
 
 /* TODO
 
-!IMPORTANT : varsdecl and add_symbol redondant 
-!IMPORTANT : test file for all operators
-!IMPORTANT : test file for var delc
-!IMPORTANT : replace all strcpy by strncpy
-!IMPORTANT : %union rename all type by type_u
+program options todo -version -tos -o <name>
 
-put all function associated wit var declaration in a header file avec split code
+src include dir
 
-options todo
+-Werror -Wall -Wextra
 
 rename linked_list by linked_list_t
 
-@brief @param etc each function (doxygen)
-
 scalpa comment todo (* comment *)
 
-test files for operation (check for every operator)
-
 alloc error CHECK macro
+
+(2^3)*9 != 2^3*9 priority ???
 
 cste string regular expression bug for  "//" valid, "/" not valid, add single 
 quote example " '"' " is a valid syntaxe
 
 free mermory if EXIT_FAILURE or syntaxe error ???
 
+@brief @param etc each function (doxygen)
+
 delete DEBUG comment and printf
 
 Do a real README file
-add option
 
 */

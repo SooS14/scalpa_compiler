@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "linked-list.h"
+#include "linked_list.h"
 #include "scalpa.h"
 
 struct linked_list * list_init(void) {
