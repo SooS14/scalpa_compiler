@@ -1,0 +1,18 @@
+program TEST
+    var test1, test2 , test3 ,vartest1,vartest2: int;
+    var b1 : bool;
+    var b11, b2, b3, b4 : bool;
+    var voidvar, voidvar2 : unit;
+    var testarray1 : array [1..5] of int;
+    var testarray2,testarray3 : array[-4..4, 0..10] of int;
+    var arraylarge : array[-4..4, 0..10, 0..10, 0..10] of unit;
+    var arraytest,testarr : array[-4..4] of bool;
+    var last_var1, last_var2 : unit;
+    function f1(t : array[-4..4, 0..10] of int) : int
+    ;
+    function f2(t : array[-4..4, 0..10] of int, ref var2 : unit, var3 : bool) : int
+    ;
+    function f3() : int
+    ;
+    function f4(ref arr : array[-4..4, 0..10, 0..10, 0..10] of bool) : int
+    ;

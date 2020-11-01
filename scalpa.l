@@ -51,6 +51,8 @@
 "array"         return ARRAY;
 ".."            return RANGELIST_SEPARATOR;
 "program"       return PROGRAM;
+"function"      return FUNCTION;
+"ref"           return REF;
 "unit"          return UNIT_TYPE;
 "int"           return INT_TYPE;
 "bool"          return BOOL_TYPE;

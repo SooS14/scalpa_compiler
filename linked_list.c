@@ -63,7 +63,7 @@ void list_pop(struct linked_list *list) {
 
 int list_len(struct linked_list *list) {
     if (list == NULL) {
-        handle_error("list_len() can't get length of a NULL pointer\n");
+        return 0;
     }
     return list->length;
 }

@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>
+#include <stdint.h>
 #include "scalpa.h"
 #include "linked_list.h"
 #include "var_declaration.h"
@@ -62,6 +63,7 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
     char *str_u;
     struct linked_list *list_u;
     struct typename_t typename_u;
+    struct param_t par_u;
 }
 
 %token <cst_u> CTE
@@ -70,9 +72,10 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
 %type <int_u> opb opu
 %type <int_u> atomictype integer
 %type <typename_u> typename arraytype
-%type <list_u> identlist rangelist
+%type <list_u> identlist rangelist parlist
+%type <par_u> par
 
-%token '(' ')' '[' ']' ',' ';' ':' ASSIGNMENT
+%token '(' ')' '[' ']' ',' ';' ':' ASSIGNMENT FUNCTION REF
 %token VAR UNIT_TYPE BOOL_TYPE INT_TYPE
 %token OF ARRAY RANGELIST_SEPARATOR PROGRAM
 
@@ -91,14 +94,19 @@ test1 : /* empty */
     | test1 expr ';' {printf("instruction : \n");display_cste($2);}
 
 program :
-    PROGRAM IDENT vardecllist {printf("TODO prgm name\n");free($2);}
+    PROGRAM IDENT vardecllist fundecllist {printf("TODO prgm name\n");free($2);}
+/* TODO instr add later */
+
+/* -------------------------------------------------------------------------- */
+/*                         variable declaration                               */
+/* -------------------------------------------------------------------------- */
 
 vardecllist : /* empty */
     | varsdecl
     | varsdecl ';' vardecllist
 
 varsdecl :
-    VAR identlist ':' typename {add_symbol_list($2, $4);}
+    VAR identlist ':' typename {add_var_symbol_list($2, $4);}
 
 identlist :
     IDENT {
@@ -125,7 +133,7 @@ arraytype :
     ARRAY '[' rangelist ']' OF atomictype {
         $$.symbol_type = ARRAY_TYPE;
         $$.atomic_type = $6;
-        $$.rangelist = $3;
+        $$.range_list = $3;
     }
 
 rangelist :
@@ -162,6 +170,106 @@ integer :
  must be integers\n");
         }
     }
+
+/* -------------------------------------------------------------------------- */
+/*                         function declaration                               */
+/* -------------------------------------------------------------------------- */
+
+fundecllist : /* empty */ 
+    | fundecl ';' fundecllist
+
+fundecl : FUNCTION IDENT '(' parlist ')' ':' atomictype vardecllist {
+    //add function
+    if (is_symbol_in_table($2, 0)) {
+        handle_error("identifier [%s] already declared.", $2);
+    }
+    realloc_table();
+
+    struct symbol_t *new_symbol = 
+            &symbol_table.symbols[symbol_table.last_ident_index];
+    
+    new_symbol->var_func_par = FUNC_T;
+    new_symbol->ident_length = strlen($2)+1;
+    new_symbol->ident = malloc(new_symbol->ident_length);
+    strncpy(new_symbol->ident, $2, new_symbol->ident_length);
+    free($2);
+    new_symbol->scope = 0;
+    new_symbol->type.func.atomic_type = $7;
+    new_symbol->type.func.nb_param = list_len($4);
+    if (list_len($4) != 0) {
+        new_symbol->type.func.index_param = malloc(list_len($4) * sizeof(int));
+    }
+    else {
+        new_symbol->type.func.index_param = NULL;
+    }
+    for (int i = 0; i < new_symbol->type.func.nb_param; i ++) {
+        new_symbol->type.func.index_param[i] = 
+            symbol_table.last_ident_index + 1 + i;
+    }
+
+    int index_function = symbol_table.last_ident_index;
+    symbol_table.last_ident_index ++;
+    symbol_table.cur_symbol_scope = index_function; // mabye useless
+    // add function parameters
+    while ($4 != NULL && list_len($4) != 0) {
+        struct param_t *data = (struct param_t *)list_get_first($4);
+        if (is_symbol_in_table(data->ident, symbol_table.cur_symbol_scope)) {
+            handle_error("identifier [%s] already declared.", data->ident);
+        }
+        realloc_table();
+        struct symbol_t *new_symbol = 
+            &symbol_table.symbols[symbol_table.last_ident_index];
+        
+        new_symbol->var_func_par = PARAM_T;
+        new_symbol->ident_length = strlen(data->ident)+1;
+        new_symbol->ident = malloc(new_symbol->ident_length);
+        strncpy(new_symbol->ident, data->ident, new_symbol->ident_length);
+        free(data->ident);
+        new_symbol->scope = symbol_table.cur_symbol_scope;
+        new_symbol->type.param.ident = NULL;
+        new_symbol->type.param.ref = data->ref;
+        copy_typename_table(&new_symbol->type.param.typename, data->typename);
+        symbol_table.last_ident_index ++;
+        if (data->typename.symbol_type == ARRAY_TYPE) {
+            list_free(data->typename.range_list);
+        }
+        list_pop($4);
+    }
+    if($4 != NULL) {
+        list_free($4);
+    }
+}
+/* TODO instr add later */
+
+parlist : /* empty */ {$$ = NULL;}
+    | par {
+        $$ = list_init();
+        list_push($$, &$1, sizeof(struct param_t));
+    }
+    | par ',' parlist {
+        list_push($3, &$1, sizeof(struct param_t));
+        $$ = $3;
+    }
+
+par :
+     IDENT ':' typename {
+        $$.ident = malloc(strlen($1)+1);
+        strcpy($$.ident, $1);
+        $$.ref = 0;
+        $$.typename = $3;
+        free($1);
+    }
+    | REF IDENT ':' typename {
+        $$.ident = malloc(strlen($2)+1);
+        strcpy($$.ident, $2);
+        $$.ref = 1; 
+        $$.typename = $4;
+        free($2);
+    }
+
+/* -------------------------------------------------------------------------- */
+/*                            expression                                      */
+/* -------------------------------------------------------------------------- */
 
 exprlist :
       expr                    {printf("TODO expr\n");}
@@ -376,9 +484,17 @@ int main (void) {
 
 /* TODO
 
+TODO valgrind / function for action in grammar
+
 program options todo -version -tos -o <name>
 
 src include dir
+
+strncpy
+
+print scope of var /param ??? or \n is enough to understand?
+
+warning: 1 shift/reduce conflict [-Wconflicts-sr] to fix
 
 -Werror -Wall -Wextra
 

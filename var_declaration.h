@@ -14,18 +14,21 @@ void init_symbol_table();
  */
 void free_symbol_table();
 
+void display_symbol(struct symbol_t *symbol, int index, int n);
+
 /**
  * @brief display symbol table
  * symbol table need to be initialized before calling this function
  */
 void display_symbol_table();
 
+// changes : scope as been added
 /**
  * @brief check if the name of the symbol is in table
  * @param char * identname, name of the symbol
  * @result 1 if symbol is in table, else 0
  */
-int is_symbol_in_table(char *identname);
+int is_symbol_in_table(char *identname, int scope);
 
 /**
  * @brief add INIT_TABLE_SIZE allocated space to the current table 
@@ -33,12 +36,15 @@ int is_symbol_in_table(char *identname);
  */
 void realloc_table ();
 
+void copy_typename_table(struct typename_t *dest, struct typename_t origin);
+
 /**
  * @brief add multiple symbols in the symbol table
  * @param struct linked_list *identlist, list of symbols to add to the table
  * @param struct typename_t, type of symbols to add to the table,
  * contain arraytype / atomictype, rangelist if arraytype
+ * /!\ only use for variable declaration (not function or parameter)
  */
-void add_symbol_list (struct linked_list *identlist, struct typename_t type);
+void add_var_symbol_list(struct linked_list *identlist, struct typename_t type);
 
 #endif

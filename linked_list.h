@@ -49,6 +49,7 @@ void list_pop(struct linked_list *list);
  * @brief return length of a list
  * @param list list from which to get the length
  * @result length of the list
+ * if list is a NULL pointer then len is 0 by default
  */
 int list_len(struct linked_list *list);
 
