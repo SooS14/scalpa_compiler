@@ -52,8 +52,8 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
 
 %}
 %code requires {
-    #include "scalpa.h"
     #include "linked_list.h"
+    #include "scalpa.h"
     #include "var_declaration.h"
 }
 
@@ -62,8 +62,10 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
     int int_u;
     char *str_u;
     struct linked_list *list_u;
-    struct typename_t typename_u;
+    struct typename_t *typename_u;
     struct param_t par_u;
+    struct vardecl_t *vardecl_u;
+    struct fundecl_t *fundecl_u;
 }
 
 %token <cst_u> CTE
@@ -72,7 +74,9 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
 %type <int_u> opb opu
 %type <int_u> atomictype integer
 %type <typename_u> typename arraytype
-%type <list_u> identlist rangelist parlist
+%type <list_u> identlist rangelist parlist vardecllist fundecllist
+%type <vardecl_u> varsdecl
+%type <fundecl_u> fundecl
 %type <par_u> par
 
 %token '(' ')' '[' ']' ',' ';' ':' ASSIGNMENT FUNCTION REF
@@ -94,19 +98,32 @@ test1 : /* empty */
     | test1 expr ';' {printf("instruction : \n");display_cste($2);}
 
 program :
-    PROGRAM IDENT vardecllist fundecllist {printf("TODO prgm name\n");free($2);}
+    PROGRAM IDENT vardecllist fundecllist {
+        printf("TODO prgm name\n");
+        add_vardecllist_table($3);
+        add_fundecllist_table($4);
+        free($2);
+    }
 /* TODO instr add later */
 
 /* -------------------------------------------------------------------------- */
 /*                         variable declaration                               */
 /* -------------------------------------------------------------------------- */
 
-vardecllist : /* empty */
-    | varsdecl
-    | varsdecl ';' vardecllist
+vardecllist : /* empty */ {$$ = list_init();}
+    | varsdecl {
+        $$ = list_init(); 
+        list_push($$, $1, sizeof(struct vardecl_t));
+        free($1);
+    }
+    | varsdecl ';' vardecllist {
+        $$ = $3;
+        list_push($$, $1, sizeof(struct vardecl_t));
+        free($1);
+    }
 
 varsdecl :
-    VAR identlist ':' typename {add_var_symbol_list($2, $4);}
+    VAR identlist ':' typename {$$ = create_vardecl($2, $4);}
 
 identlist :
     IDENT {
@@ -121,7 +138,7 @@ identlist :
     }
 
 typename :
-      atomictype {$$.symbol_type = ATOMIC_TYPE; $$.atomic_type = $1;}
+      atomictype {$$ = create_typename_atomic($1);}
     | arraytype  {$$ = $1;}
 
 atomictype :
@@ -130,11 +147,7 @@ atomictype :
     | INT_TYPE   {$$ = INT_A;}
 
 arraytype :
-    ARRAY '[' rangelist ']' OF atomictype {
-        $$.symbol_type = ARRAY_TYPE;
-        $$.atomic_type = $6;
-        $$.range_list = $3;
-    }
+    ARRAY '[' rangelist ']' OF atomictype {$$ = create_typename_array($3, $6);}
 
 rangelist :
       integer RANGELIST_SEPARATOR integer {
@@ -147,7 +160,7 @@ rangelist :
         int x2 = $3;
         list_push($$, &x2, sizeof(int));
         list_push($$, &x1, sizeof(int));
-      }
+    }
     | integer RANGELIST_SEPARATOR integer ',' rangelist {
         if ($1 > $3) {
             handle_error("[%i..%i], invalid rangelist (%i > %i)",
@@ -158,7 +171,7 @@ rangelist :
         int x2 = $3;
         list_push($$, &x2, sizeof(int));
         list_push($$, &x1, sizeof(int));
-      }
+    }
 
 integer :
     expr {
@@ -175,71 +188,17 @@ integer :
 /*                         function declaration                               */
 /* -------------------------------------------------------------------------- */
 
-fundecllist : /* empty */ 
-    | fundecl ';' fundecllist
+fundecllist : /* empty */ {$$ = list_init();}
+    | fundecl ';' fundecllist {
+        $$ = $3;
+        list_push($$, $1, sizeof(struct fundecl_t));
+        free($1);
+    }
 
 fundecl : FUNCTION IDENT '(' parlist ')' ':' atomictype vardecllist {
-    //add function
-    if (is_symbol_in_table($2, 0)) {
-        handle_error("identifier [%s] already declared.", $2);
-    }
-    realloc_table();
-
-    struct symbol_t *new_symbol = 
-            &symbol_table.symbols[symbol_table.last_ident_index];
-    
-    new_symbol->var_func_par = FUNC_T;
-    new_symbol->ident_length = strlen($2)+1;
-    new_symbol->ident = malloc(new_symbol->ident_length);
-    strncpy(new_symbol->ident, $2, new_symbol->ident_length);
-    free($2);
-    new_symbol->scope = 0;
-    new_symbol->type.func.atomic_type = $7;
-    new_symbol->type.func.nb_param = list_len($4);
-    if (list_len($4) != 0) {
-        new_symbol->type.func.index_param = malloc(list_len($4) * sizeof(int));
-    }
-    else {
-        new_symbol->type.func.index_param = NULL;
-    }
-    for (int i = 0; i < new_symbol->type.func.nb_param; i ++) {
-        new_symbol->type.func.index_param[i] = 
-            symbol_table.last_ident_index + 1 + i;
-    }
-
-    int index_function = symbol_table.last_ident_index;
-    symbol_table.last_ident_index ++;
-    symbol_table.cur_symbol_scope = index_function; // mabye useless
-    // add function parameters
-    while ($4 != NULL && list_len($4) != 0) {
-        struct param_t *data = (struct param_t *)list_get_first($4);
-        if (is_symbol_in_table(data->ident, symbol_table.cur_symbol_scope)) {
-            handle_error("identifier [%s] already declared.", data->ident);
-        }
-        realloc_table();
-        struct symbol_t *new_symbol = 
-            &symbol_table.symbols[symbol_table.last_ident_index];
-        
-        new_symbol->var_func_par = PARAM_T;
-        new_symbol->ident_length = strlen(data->ident)+1;
-        new_symbol->ident = malloc(new_symbol->ident_length);
-        strncpy(new_symbol->ident, data->ident, new_symbol->ident_length);
-        free(data->ident);
-        new_symbol->scope = symbol_table.cur_symbol_scope;
-        new_symbol->type.param.ident = NULL;
-        new_symbol->type.param.ref = data->ref;
-        copy_typename_table(&new_symbol->type.param.typename, data->typename);
-        symbol_table.last_ident_index ++;
-        if (data->typename.symbol_type == ARRAY_TYPE) {
-            list_free(data->typename.range_list);
-        }
-        list_pop($4);
-    }
-    if($4 != NULL) {
-        list_free($4);
-    }
+    $$ = create_fundecl($2, $7, $4, $8);
 }
-/* TODO instr add later */
+// TODO instr add later
 
 parlist : /* empty */ {$$ = NULL;}
     | par {
@@ -262,7 +221,7 @@ par :
     | REF IDENT ':' typename {
         $$.ident = malloc(strlen($2)+1);
         strcpy($$.ident, $2);
-        $$.ref = 1; 
+        $$.ref = 1;
         $$.typename = $4;
         free($2);
     }
@@ -484,19 +443,23 @@ int main (void) {
 
 /* TODO
 
-TODO valgrind / function for action in grammar
-
-program options todo -version -tos -o <name>
+TODO add more test to be sure we don't get any bugs coming from the table later
+TODO test valgrind each time
+TODO -Werror -Wall -Wextra
+TODO rename file var_declaration
+TODO add test for 2nd rule of vardelclist
+TODO remove useless comment on var func decl
+TODO warning: 1 shift/reduce conflict [-Wconflicts-sr] to fix
+TODO @brief @param etc each function (doxygen)
+TODO program options todo -version -tos -o <name>
 
 src include dir
+
+\r in display improve
 
 strncpy
 
 print scope of var /param ??? or \n is enough to understand?
-
-warning: 1 shift/reduce conflict [-Wconflicts-sr] to fix
-
--Werror -Wall -Wextra
 
 rename linked_list by linked_list_t
 
@@ -510,8 +473,6 @@ cste string regular expression bug for  "//" valid, "/" not valid, add single
 quote example " '"' " is a valid syntaxe
 
 free mermory if EXIT_FAILURE or syntaxe error ???
-
-@brief @param etc each function (doxygen)
 
 delete DEBUG comment and printf
 

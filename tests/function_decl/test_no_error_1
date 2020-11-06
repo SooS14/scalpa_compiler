@@ -9,6 +9,7 @@ program TEST
     var arraytest,testarr : array[-4..4] of bool;
     var last_var1, last_var2 : unit;
     function f1(t : array[-4..4, 0..10] of int) : int
+    var test11, test1 : int;
     ;
     function f2(t : array[-4..4, 0..10] of int, ref var2 : unit, var3 : bool) : int
     ;

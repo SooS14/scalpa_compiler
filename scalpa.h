@@ -41,9 +41,21 @@ struct typename_t {
     int (*range_array)[2];
 };
 
+struct vardecl_t {
+    struct linked_list *identlist;
+    struct typename_t *typename;
+};
+
+struct fundecl_t {
+    char *ident;
+    int atomictype;
+    struct linked_list *parlist;
+    struct linked_list *vardecllist;
+};
+
 struct param_t {
-    char * ident; // used for parlist
-    struct typename_t typename;
+    char *ident; // used for parlist
+    struct typename_t *typename;
     int ref;  // bool indicating if it's a ref
 };
 
@@ -54,13 +66,13 @@ struct function_t {
 };
 
 struct variable_t {
-    struct typename_t typename;
+    struct typename_t *typename;
     int initialiazed;
 };
 
 struct symbol_t {
     // name of the variable
-    char * ident;
+    char *ident;
     //length of the identifier name
     int ident_length;
     // 0 if declared, 1 if a value as been affected

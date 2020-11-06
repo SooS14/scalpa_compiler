@@ -30,6 +30,19 @@ void display_symbol_table();
  */
 int is_symbol_in_table(char *identname, int scope);
 
+struct fundecl_t * create_fundecl(char *_ident, 
+                                  int _atomictype,
+                                  struct linked_list *_parlist,
+                                  struct linked_list *_vardecllist);
+
+struct vardecl_t * create_vardecl(struct linked_list *_identlist,
+                                  struct typename_t *_typename);
+
+struct typename_t * create_typename_array(struct linked_list *_range_list,
+                                          int _atomic_type);
+
+struct typename_t * create_typename_atomic(int _atomic_type);
+
 /**
  * @brief add INIT_TABLE_SIZE allocated space to the current table 
  * for new symbols. This function is only called by add_symbol_list()
@@ -46,5 +59,16 @@ void copy_typename_table(struct typename_t *dest, struct typename_t origin);
  * /!\ only use for variable declaration (not function or parameter)
  */
 void add_var_symbol_list(struct linked_list *identlist, struct typename_t type);
+
+void add_vardecl_table(struct linked_list *identlist,
+                       struct typename_t *_typename);
+
+void add_vardecllist_table(struct linked_list *vardecllist);
+
+void add_paramlist_table(struct linked_list *parlist);
+
+void add_vardecllist_table(struct linked_list *vardecllist);
+
+void add_fundecllist_table(struct linked_list *fundecllist);
 
 #endif
