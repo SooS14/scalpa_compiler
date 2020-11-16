@@ -6,11 +6,15 @@
 #include <math.h>
 #include <string.h>
 #include <stdint.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include "scalpa.h"
 #include "linked_list.h"
-#include "var_declaration.h"
+#include "table_of_symbol.h"
+#include "args-parser.h"
 
 struct symbol_table_t symbol_table;
+int fd_out;
 
 int yylex(void);
 
@@ -50,11 +54,74 @@ struct cste_value_t compute_opb(struct cste_value_t expr1,
  */
 struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
 
+/* -------------------------------------------------------------------------- */
+/*                             write spim file                                */
+/* -------------------------------------------------------------------------- */
+
+void write_main(char * program_name) {
+    int size_buff = 40 + strlen(program_name);
+    char * buff = malloc(40 + strlen(program_name));
+    MCHECK(buff);
+    check_snprintf(snprintf(buff, size_buff, "# program : %s\n\t.text\n\t.globl\
+ main\nmain:\n", program_name), size_buff);
+    CHECK(write(fd_out, buff, strlen(buff)));
+    free(buff);
+}
+
+void write_data() {
+    char * buff = malloc(9);
+    MCHECK(buff);
+    check_snprintf(snprintf(buff, 9, "\n\t.data\n"), 9);
+    CHECK(write(fd_out, buff, strlen(buff)));
+    for (int i = 0; i < symbol_table.last_ident_index; i++) {
+        if (symbol_table.symbols[i].var_func_par == VAR_T) {
+            struct variable_t cur_sym = symbol_table.symbols[i].type.var;
+            int n = (symbol_table.symbols[i].scope == 0) ? 
+                1 : floor(log10(symbol_table.symbols[i].scope)) + 1;
+            if (cur_sym.typename->symbol_type == ATOMIC_TYPE) {
+                int size_buff = 13 + n + symbol_table.symbols[i].ident_length;
+                buff = realloc(buff, size_buff);
+                MCHECK(buff);
+                check_snprintf(snprintf(buff, size_buff, "\t%s_%i:\t.word 0\n",
+                    symbol_table.symbols[i].ident,
+                    symbol_table.symbols[i].scope), size_buff);
+                CHECK(write(fd_out, buff, strlen(buff)));
+            }
+            else {
+                int nb_element = 1;
+                for (int j = 0; j < cur_sym.typename->len_range_list; j++) {
+                    nb_element *= (cur_sym.typename->range_array[j][1] 
+                        - cur_sym.typename->range_array[j][0] + 1); 
+                }
+                int size_buff = 12 + n + symbol_table.symbols[i].ident_length 
+                    + 3 * nb_element;
+                buff = realloc(buff, size_buff);
+                MCHECK(buff);
+                check_snprintf(snprintf(buff, size_buff, "\t%s_%i:\t.word ",
+                    symbol_table.symbols[i].ident,
+                    symbol_table.symbols[i].scope), size_buff);
+                for (int j = 0; j < nb_element; j++) {
+                    char *buff_cpy = malloc(strlen(buff)+1);
+                    MCHECK(buff_cpy);
+                    buff_cpy = strncpy(buff_cpy, buff, strlen(buff)+1);
+                    check_snprintf(snprintf(buff, size_buff, "%s0, ",
+                        buff_cpy), size_buff);
+                    free(buff_cpy);
+                }
+                buff[strlen(buff) - 2] = '\n';
+                buff[strlen(buff) - 1] = '\0';
+                CHECK(write(fd_out, buff, strlen(buff)));
+            }
+        }
+    }
+    free(buff);
+}
+
 %}
 %code requires {
     #include "linked_list.h"
     #include "scalpa.h"
-    #include "var_declaration.h"
+    #include "table_of_symbol.h"
 }
 
 %union {
@@ -94,15 +161,14 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
 %start program
 
 %%
-test1 : /* empty */
-    | test1 expr ';' {printf("instruction : \n");display_cste($2);}
 
 program :
     PROGRAM IDENT vardecllist fundecllist {
-        printf("TODO prgm name\n");
+        write_main($2);
         add_vardecllist_table($3);
         add_fundecllist_table($4);
         free($2);
+        write_data();
     }
 /* TODO instr add later */
 
@@ -110,7 +176,8 @@ program :
 /*                         variable declaration                               */
 /* -------------------------------------------------------------------------- */
 
-vardecllist : /* empty */ {$$ = list_init();}
+vardecllist : 
+      /* empty */ {$$ = list_init();}
     | varsdecl {
         $$ = list_init(); 
         list_push($$, $1, sizeof(struct vardecl_t));
@@ -126,7 +193,7 @@ varsdecl :
     VAR identlist ':' typename {$$ = create_vardecl($2, $4);}
 
 identlist :
-    IDENT {
+      IDENT {
         $$ = list_init();
         list_push($$, $1, strlen($1)+1);
         free($1);
@@ -188,7 +255,8 @@ integer :
 /*                         function declaration                               */
 /* -------------------------------------------------------------------------- */
 
-fundecllist : /* empty */ {$$ = list_init();}
+fundecllist : 
+      /* empty */ {$$ = list_init();}
     | fundecl ';' fundecllist {
         $$ = $3;
         list_push($$, $1, sizeof(struct fundecl_t));
@@ -200,7 +268,8 @@ fundecl : FUNCTION IDENT '(' parlist ')' ':' atomictype vardecllist {
 }
 // TODO instr add later
 
-parlist : /* empty */ {$$ = NULL;}
+parlist : 
+      /* empty */ {$$ = NULL;}
     | par {
         $$ = list_init();
         list_push($$, &$1, sizeof(struct param_t));
@@ -211,16 +280,24 @@ parlist : /* empty */ {$$ = NULL;}
     }
 
 par :
-     IDENT ':' typename {
+      IDENT ':' typename {
+        if ($3->atomic_type == VOID_A) {
+            handle_error("parameter can't be of type unit");
+        }
         $$.ident = malloc(strlen($1)+1);
-        strcpy($$.ident, $1);
+        MCHECK($$.ident);
+        strncpy($$.ident, $1, strlen($1)+1);
         $$.ref = 0;
         $$.typename = $3;
         free($1);
     }
     | REF IDENT ':' typename {
+        if ($4->atomic_type == VOID_A) {
+            handle_error("parameter can't be of type ref unit");
+        }
         $$.ident = malloc(strlen($2)+1);
-        strcpy($$.ident, $2);
+        MCHECK($$.ident);
+        strncpy($$.ident, $2, strlen($2)+1);
         $$.ref = 1;
         $$.typename = $4;
         free($2);
@@ -266,6 +343,8 @@ opu :
 
 %%
 
+/* -------------------------------------------------------------------------- */
+
 void yyerror(const char * msg) {
     fprintf(stderr, "%s\n", msg);
 }
@@ -280,6 +359,25 @@ noreturn void handle_error(const char * msg, ...) {
     va_end(ap);
 
     exit(EXIT_FAILURE);
+}
+
+noreturn void handle_perror(const char * msg, ...) {
+    va_list ap;
+
+    va_start(ap, msg);
+    vfprintf(stderr, "perror : ", ap);
+    vfprintf(stderr, msg, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+    perror("");
+
+    exit(EXIT_FAILURE);
+}
+
+void check_snprintf(int result, int wsize) {
+    if ((result) < 0 || (result) >= wsize) {
+        handle_perror("snprintf failed\n");
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -412,7 +510,7 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu) {
     if (expr.type == INT) {
         result.type = INT;
         if (opu == OP_MINUS) {
-                result.val.iconst = - expr.val.iconst;
+            result.val.iconst = - expr.val.iconst;
         }
         else {
             handle_error("unary operator [not] forbidden for int");
@@ -432,10 +530,28 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu) {
 
 /* -------------------------------------------------------------------------- */
 
-int main (void) {
+int main (int argc, char * argv[]) {
+    args_t args;
+    parse_args(argc, argv, &args);
+
+    if (args.flags & VERSION) {
+        display_version();
+    }
+    if (!(args.flags & OUT_FILE)) {
+        printf("\nno output file specified, default output file used : "
+            "<output.s>\n\n");
+        CHECK(args.fd = open ("output.s", O_WRONLY | O_CREAT | O_TRUNC, 0666));
+    }
+    fd_out = args.fd;
+
     init_symbol_table();
     int c = yyparse();
-    display_symbol_table(); // TODO only if option
+    
+    if (args.flags & SYM_TABLE) {
+        display_symbol_table();
+    }
+
+    CHECK(close(args.fd));
     free_symbol_table();
     yylex_destroy();
     return c;
@@ -443,38 +559,32 @@ int main (void) {
 
 /* TODO
 
-TODO add more test to be sure we don't get any bugs coming from the table later
-TODO test valgrind each time
-TODO -Werror -Wall -Wextra
-TODO rename file var_declaration
-TODO add test for 2nd rule of vardelclist
-TODO remove useless comment on var func decl
-TODO warning: 1 shift/reduce conflict [-Wconflicts-sr] to fix
-TODO @brief @param etc each function (doxygen)
-TODO program options todo -version -tos -o <name>
+IMPORTANT
 
-src include dir
+NOT PRIORITY
+ - table of symbol add pointer (hash table ?)
+ - improve display tos function \r in display improve, print scope ?
+ - expr const or not if identifier for integer in arraytype
+ - const for array size in grammar
+ - new test for cste and expr
 
-\r in display improve
+Q : warning: 1 shift/reduce conflict [-Wconflicts-sr] fix ?
+Q : rename linked_list by linked_list_t ?
+Q : free mermory if EXIT_FAILURE or syntaxe error ?
+Q : (2^3)*9 != 2^3*9 priority ?
+Q : src include dir ?
+Q : cste string regular expression bug for  "//" valid, "/" not valid,
+    add single quote example " '"' " is a valid syntaxe
+Q : getopt.h for args ?
+Q : test if output file is part of the source code ?
 
-strncpy
-
-print scope of var /param ??? or \n is enough to understand?
-
-rename linked_list by linked_list_t
-
-scalpa comment todo (* comment *)
-
-alloc error CHECK macro
-
-(2^3)*9 != 2^3*9 priority ???
-
-cste string regular expression bug for  "//" valid, "/" not valid, add single 
-quote example " '"' " is a valid syntaxe
-
-free mermory if EXIT_FAILURE or syntaxe error ???
-
-delete DEBUG comment and printf
+verif :
+ - yacc warning
+ - valgrind
+ - malloc check
+ - system call check
+ - remove useless command and test
+ - -Wall -Werror -Wextra
 
 Do a real README file
 

@@ -5,7 +5,8 @@
 #include "scalpa.h"
 
 struct linked_list * list_init(void) {
-    struct linked_list *list = malloc(sizeof(struct linked_list));
+    struct linked_list *list= malloc(sizeof(struct linked_list));
+    MCHECK(list);
     list->length = 0;
     list->first = NULL;
     return list;
@@ -29,8 +30,10 @@ void list_push(struct linked_list *list, void *x, int size_of_data) {
  pointer\n");
     }
     struct node *new_element = malloc(sizeof(struct node));
+    MCHECK(new_element);
     list->length ++;
     new_element->data = malloc(size_of_data);
+    MCHECK(new_element->data);
     for (int i = 0; i < size_of_data; i++) {
         *((uint8_t *)(new_element->data + i)) = *((uint8_t *)(x + i));
     }

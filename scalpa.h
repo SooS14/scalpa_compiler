@@ -3,7 +3,17 @@
 
 #include <stdnoreturn.h>
 #include <stdarg.h>
+#include <errno.h>
 #include "linked_list.h"
+
+#define MCHECK(op) do {if ((op)==NULL) \
+        handle_perror("%s", #op);} while (0)
+
+#define CHECK(op) do {if ((op)==-1) handle_perror(#op);} while (0)
+
+#define ABS(n) (((n)<0)?(-n):(n))
+
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 enum type_t {INT, STRING, BOOL};
 enum atomic_type_t {INT_A, BOOL_A, VOID_A};
@@ -12,18 +22,26 @@ enum var_func_par_t {VAR_T, FUNC_T, PARAM_T}; // find an other name later
 
 /**
  * @brief Print an error message in stderr and exit program with EXIT_FAILURE
- * @param msg message to print in stderr
+ * @param msg, message to print in stderr
  */
 noreturn void handle_error(const char * msg, ...);
+
+/**
+ * @brief Print an error message in stderr and exit program with EXIT_FAILURE
+ * display last error encountered during a call to a system or a library with
+ * perror()
+ * @param msg, message to print in stderr
+ */
+noreturn void handle_perror(const char * msg, ...);
 
 struct cste_value_t {
     enum type_t type;
     union {
-        // int
+        // int constant
         int iconst;
-        // string
+        // string constant
         char *sconst;
-        // bool
+        // bool constant
         int bconst;
     } val;
 };
@@ -102,5 +120,12 @@ struct symbol_table_t {
     // the index of the function
     int cur_symbol_scope;
 };
+
+/**
+ * @brief check the return value of a snprintf call -> exit if an error occured 
+ * @param result value returned by snprintf call to check
+ * @param wsize result write at most bytes
+ */
+void check_snprintf(int result, int wsize);
 
 #endif

@@ -20,7 +20,7 @@ struct linked_list * list_init(void);
 
 /**
  * @brief free all the allocated memory of a linked-list
- * @param struct linked_list *list pointer to the list to free
+ * @param list pointer to the list to free
  */
 void list_free(struct linked_list *list);
 
@@ -41,13 +41,13 @@ void * list_get_first(struct linked_list *list);
 /**
  * @brief delete the first element of a list (don't return the data)
  * also free memory allacted for the first element
- * @param list list from which to pop the first element
+ * @param list, list from which to pop the first element
  */
 void list_pop(struct linked_list *list);
 
 /**
  * @brief return length of a list
- * @param list list from which to get the length
+ * @param list, list from which to get the length
  * @result length of the list
  * if list is a NULL pointer then len is 0 by default
  */

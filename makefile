@@ -1,23 +1,34 @@
-prefixe=scalpa
+CFLAGS=-lm -lfl
+TARGET=scalpa
+YACCFLAGS=-d -g -v -Wno-yacc
 
-all: y.tab.o lex.yy.o linked_list.o var_declaration.o
-	gcc y.tab.o lex.yy.o linked_list.o var_declaration.o -lfl -o $(prefixe) -lm
+all: y.tab.o lex.yy.o linked_list.o table_of_symbol.o args-parser.o
+	gcc y.tab.o lex.yy.o linked_list.o table_of_symbol.o args-parser.o $(CFLAGS) -o $(TARGET)
 
-var_declaration.o: var_declaration.c var_declaration.h
-	gcc -c var_declaration.c -o var_declaration.o
+table_of_symbol.o: table_of_symbol.c table_of_symbol.h
+	gcc -c table_of_symbol.c -o table_of_symbol.o
 
 linked_list.o: linked_list.c linked_list.h
 	gcc -c linked_list.c -o linked_list.o
-	
-y.tab.o: $(prefixe).y
-	yacc -d -g -v $(prefixe).y -Wno-yacc
+
+args-parser.o : args-parser.c args-parser.h
+	gcc -c args-parser.c -o args-parser.o
+
+y.tab.o: $(TARGET).y
+	yacc $(YACCFLAGS) $(TARGET).y
 	gcc -c y.tab.c
 
-lex.yy.o: $(prefixe).l y.tab.h
-	lex $(prefixe).l
+lex.yy.o: $(TARGET).l y.tab.h
+	lex $(TARGET).l
 	gcc -c lex.yy.c
 
 clean:
-	rm -f *.o y.tab.c y.tab.h lex.yy.c a.out $(prefixe)
-	rm y.dot
-	rm y.output
+	$(RM) -f *.o y.tab.c y.tab.h lex.yy.c a.out $(TARGET)
+	$(RM) y.dot
+	$(RM) y.output
+
+cleanall:
+	$(RM) -f *.o y.tab.c y.tab.h lex.yy.c a.out $(TARGET)
+	$(RM) y.dot
+	$(RM) y.output
+	$(RM) *.s

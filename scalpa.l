@@ -7,6 +7,8 @@
 
 %}
 %%
+\(\*([^*]|[\r\n]|(\*+([^*\)]|[\r\n])))*\*+\) (void)0;
+
 [0-9]+ {
     struct cste_value_t temp;
     temp.type = INT;
@@ -18,6 +20,7 @@
     struct cste_value_t temp;
     temp.type = STRING;
     temp.val.sconst = malloc(yyleng + 1);
+    MCHECK(temp.val.sconst);
     strncpy(temp.val.sconst , yytext, yyleng);
     temp.val.sconst[yyleng] = '\0';
     yylval.cst_u = temp;
@@ -75,6 +78,7 @@
 
 [a-zA-Z_][a-zA-Z_1-9]* {
     yylval.str_u = malloc(yyleng+1);
+    MCHECK(yylval.str_u);
     strncpy(yylval.str_u , yytext, yyleng);
     yylval.str_u[yyleng] = '\0';
     return IDENT;

@@ -1,11 +1,10 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include "scalpa.h"
 #include "linked_list.h"
-#include "var_declaration.h"
+#include "table_of_symbol.h"
 
 extern struct symbol_table_t symbol_table;
 
@@ -13,6 +12,7 @@ void init_symbol_table() {
     symbol_table.table_size = INIT_TABLE_SIZE;
     symbol_table.last_ident_index = 0;
     symbol_table.symbols = malloc(INIT_TABLE_SIZE * sizeof(struct symbol_t));
+    MCHECK(symbol_table.symbols);
     symbol_table.cur_symbol_scope = 0;
 }
 
@@ -116,7 +116,7 @@ void display_symbol(struct symbol_t *symbol, int index, int n) {
             printf("] )");
         }
         break;
-    default: break; // ERROR exit (impossible)
+    default: break;
     }
         printf("\r| %i\n", index);
 }
@@ -136,8 +136,8 @@ void display_symbol_table() {
     for (int j = 0; j < n; j++) {
         printf(" ");
     }
-    printf("| type      | atomic_type | identifier | rangelist/parameters\
- \r| index\n");
+    printf("| type      | atomic_type | identifier | rangelist/parameters"
+           "\r| index\n");
     for (int i = 0; i < symbol_table.last_ident_index; i ++) {
         display_symbol(&symbol_table.symbols[i], i, n);
     }
@@ -148,15 +148,21 @@ struct fundecl_t * create_fundecl(char *_ident,
                                   struct linked_list *_parlist,
                                   struct linked_list *_vardecllist) {
     struct fundecl_t *x = malloc(sizeof(struct fundecl_t));
+    MCHECK(x);
     x->ident = _ident;
     x->atomictype = _atomictype;
     x->parlist = _parlist;
     x->vardecllist = _vardecllist;
     return x;
 }
+
 struct vardecl_t * create_vardecl(struct linked_list *_identlist,
                                   struct typename_t *_typename) {
+    if (_typename->atomic_type == VOID_A) {
+        handle_error("variable can't be of type unit");
+    }
     struct vardecl_t *x = malloc(sizeof(struct vardecl_t));
+    MCHECK(x);
     x->identlist = _identlist;
     x->typename = _typename;
     return x;
@@ -165,6 +171,7 @@ struct vardecl_t * create_vardecl(struct linked_list *_identlist,
 struct typename_t * create_typename_array(struct linked_list *_range_list,
                                           int _atomic_type) {
     struct typename_t *x = malloc(sizeof(struct typename_t));
+    MCHECK(x);
     x->symbol_type = ARRAY_TYPE;
     x->range_list = _range_list;
     x->atomic_type = _atomic_type;
@@ -173,6 +180,7 @@ struct typename_t * create_typename_array(struct linked_list *_range_list,
 
 struct typename_t * create_typename_atomic(int _atomic_type) {
     struct typename_t *x = malloc(sizeof(struct typename_t));
+    MCHECK(x);
     x->symbol_type = ATOMIC_TYPE;
     x->range_list = NULL;
     x->atomic_type = _atomic_type;
@@ -182,7 +190,9 @@ struct typename_t * create_typename_atomic(int _atomic_type) {
 int is_symbol_in_table(char *identname, int scope) {
     int size = strlen(identname) + 1;
     for (int i = 0; i < symbol_table.last_ident_index; i++) {
-        if (scope == symbol_table.symbols[i].scope &&
+        if ((scope == symbol_table.symbols[i].scope ||
+            (scope != 0 && symbol_table.symbols[i].scope == 0 && 
+            symbol_table.symbols[i].var_func_par == VAR_T)) &&
             size == symbol_table.symbols[i].ident_length &&
             !strncmp(identname, symbol_table.symbols[i].ident, size)) {
                 return 1;
@@ -196,6 +206,7 @@ void realloc_table () {
         symbol_table.table_size += INIT_TABLE_SIZE;
         symbol_table.symbols = realloc(symbol_table.symbols,
             symbol_table.table_size * sizeof(struct symbol_t));
+        MCHECK(symbol_table.symbols);
     }
 }
 
@@ -210,6 +221,7 @@ void copy_typename_table(struct typename_t *dest, struct typename_t origin) {
         int len = list_len(origin.range_list) / 2;
         dest->len_range_list = len;
         dest->range_array = malloc(len * sizeof(int[2]));
+        MCHECK(dest->range_array);
         int i = 0;
         struct node *temp_node =  origin.range_list->first;
         while (temp_node != NULL) {
@@ -241,9 +253,11 @@ void add_vardecl_table (struct linked_list *identlist,
         new_symbol->var_func_par = VAR_T;
         new_symbol->ident_length = strlen(new_ident_name) + 1;
         new_symbol->ident = malloc(new_symbol->ident_length);
+        MCHECK(new_symbol->ident);
         strncpy(new_symbol->ident, new_ident_name, new_symbol->ident_length);
         new_symbol->type.var.initialiazed = 0;
         new_symbol->type.var.typename = malloc(sizeof(struct typename_t));
+        MCHECK(new_symbol->type.var.typename);
         copy_typename_table(new_symbol->type.var.typename, *_typename);
         symbol_table.last_ident_index ++;
         list_pop(identlist);
@@ -277,12 +291,14 @@ void add_paramlist_table(struct linked_list *parlist) {
         new_symbol->var_func_par = PARAM_T;
         new_symbol->ident_length = strlen(param->ident)+1;
         new_symbol->ident = malloc(new_symbol->ident_length);
+        MCHECK(new_symbol->ident);
         strncpy(new_symbol->ident, param->ident, new_symbol->ident_length);
         free(param->ident);
         new_symbol->scope = symbol_table.cur_symbol_scope;
         new_symbol->type.param.ident = NULL;
         new_symbol->type.param.ref = param->ref;
         new_symbol->type.param.typename = malloc(sizeof(struct typename_t));
+        MCHECK(new_symbol->type.param.typename);
         copy_typename_table(new_symbol->type.param.typename, *param->typename);
         symbol_table.last_ident_index ++;
         if (param->typename->symbol_type == ARRAY_TYPE) {
@@ -309,6 +325,7 @@ void add_func_ident_table(char *ident,
     new_symbol->var_func_par = FUNC_T;
     new_symbol->ident_length = strlen(ident) + 1;
     new_symbol->ident = malloc(new_symbol->ident_length);
+    MCHECK(new_symbol->ident);
     strncpy(new_symbol->ident, ident, new_symbol->ident_length);
     free(ident);
     new_symbol->scope = 0;
@@ -317,6 +334,7 @@ void add_func_ident_table(char *ident,
     if (list_len(parlist) != 0) {
         new_symbol->type.func.index_param = 
             malloc(list_len(parlist) * sizeof(int));
+        MCHECK(new_symbol->type.func.index_param);
     }
     else {
         new_symbol->type.func.index_param = NULL;
