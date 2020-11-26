@@ -12,8 +12,11 @@
 #include "linked_list.h"
 #include "table_of_symbol.h"
 #include "args-parser.h"
+#include "quad.h"
 
 struct symbol_table_t symbol_table;
+struct quad_table_t quad_table;
+
 int fd_out;
 
 int yylex(void);
@@ -113,6 +116,7 @@ void write_data() {
                 CHECK(write(fd_out, buff, strlen(buff)));
             }
         }
+        // TODO param ?? 
     }
     free(buff);
 }
@@ -122,6 +126,7 @@ void write_data() {
     #include "linked_list.h"
     #include "scalpa.h"
     #include "table_of_symbol.h"
+    #include "quad.h"
 }
 
 %union {
@@ -133,6 +138,7 @@ void write_data() {
     struct param_t par_u;
     struct vardecl_t *vardecl_u;
     struct fundecl_t *fundecl_u;
+    struct lvalue_t lvalue_u;
 }
 
 %token <cst_u> CTE
@@ -141,12 +147,14 @@ void write_data() {
 %type <int_u> opb opu
 %type <int_u> atomictype integer
 %type <typename_u> typename arraytype
-%type <list_u> identlist rangelist parlist vardecllist fundecllist
+%type <list_u> identlist rangelist parlist vardecllist fundecllist exprlist
 %type <vardecl_u> varsdecl
 %type <fundecl_u> fundecl
+%type <lvalue_u> lvalue
 %type <par_u> par
 
-%token '(' ')' '[' ']' ',' ';' ':' ASSIGNMENT FUNCTION REF
+%token '(' ')' '[' ']' ',' ';' ':' ASSIGNMENT FUNCTION REF READ WRITE BEGIN_
+%token END IF THEN ELSE RETURN WHILE DO
 %token VAR UNIT_TYPE BOOL_TYPE INT_TYPE
 %token OF ARRAY RANGELIST_SEPARATOR PROGRAM
 
@@ -304,8 +312,35 @@ par :
     }
 
 /* -------------------------------------------------------------------------- */
+/*                            instruction                                     */
+/* -------------------------------------------------------------------------- */
+
+instr :
+      IF expr THEN instr 
+    | IF expr THEN instr ELSE instr
+    | WHILE expr DO instr 
+    | lvalue ASSIGNMENT expr {lvalue}
+    | RETURN expr 
+    | RETURN
+    | IDENT '(' exprlist ')'
+    | IDENT '(' ')' 
+    | BEGIN_ sequence END 
+    | BEGIN_ END
+    | READ lvalue 
+    | WRITE expr
+
+sequence :
+      instr ';' sequence 
+    | instr ';' 
+    | instr
+
+/* -------------------------------------------------------------------------- */
 /*                            expression                                      */
 /* -------------------------------------------------------------------------- */
+
+lvalue :
+      IDENT                   {}
+    | IDENT '[' exprlist ']'  {}
 
 exprlist :
       expr                    {printf("TODO expr\n");}
@@ -545,6 +580,8 @@ int main (int argc, char * argv[]) {
     fd_out = args.fd;
 
     init_symbol_table();
+    init_quad_table();
+
     int c = yyparse();
     
     if (args.flags & SYM_TABLE) {
@@ -553,9 +590,20 @@ int main (int argc, char * argv[]) {
 
     CHECK(close(args.fd));
     free_symbol_table();
+    // TODO free quad table
     yylex_destroy();
     return c;
 }
+
+/*
+J'ai des cc et d'autres projets a faire mais il faut dans un 1er temps refaire 
+les expressions dans la grammaire, en fait faudra reprendre ce qu'il a dans les 
+td et refaire ça proprement. Ensuite on pourra acceder au resultat de ces 
+expressions pour faire des listes exprlist ou dans des if while etc.
+Bon bref faut refaire proprement les expressions et generer les quadruplets en 
+meme temps. Si vous avez des questions appelez moi (antoine), la j'ai pas trop 
+le temps tout de suite
+*/
 
 /* TODO
 

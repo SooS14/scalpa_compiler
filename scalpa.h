@@ -15,6 +15,8 @@
 
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
+#define INIT_TABLE_SIZE 1024
+
 enum type_t {INT, STRING, BOOL};
 enum atomic_type_t {INT_A, BOOL_A, VOID_A};
 enum symbol_type_t {ATOMIC_TYPE, ARRAY_TYPE, FUNCTION_TYPE, PARAMETER_TYPE};
@@ -44,6 +46,18 @@ struct cste_value_t {
         // bool constant
         int bconst;
     } val;
+};
+
+struct lvalue_t {
+    // name of the variable
+    char * ident;
+    //index of variable in symbol table
+    int index;
+    // symbol type : atomic_type / array_type
+    enum symbol_type_t symbol_type;
+    // if ident is an array then exprelist represent the index of the element 
+    // to access, exprlist need to have the same size as 
+    struct linked_list *exprelist;
 };
 
 struct typename_t {
@@ -94,7 +108,7 @@ struct symbol_t {
     //length of the identifier name
     int ident_length;
     // 0 if declared, 1 if a value as been affected
-    enum var_func_par_t var_func_par;
+    enum var_func_par_t var_func_par; // TODO remane 
     union {
         struct param_t param;
         struct function_t func;

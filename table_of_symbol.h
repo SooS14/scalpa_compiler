@@ -1,8 +1,6 @@
 #ifndef TABLE_OF_SYMBOL_H
 #define TABLE_OF_SYMBOL_H
 
-#define INIT_TABLE_SIZE 1024
-
 /**
  * @brief initialize the symbol table
  * call free_symbol_table() to free allocated memory later

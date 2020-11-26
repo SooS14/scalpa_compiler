@@ -49,17 +49,7 @@
 ";"             return ';';
 ":"             return ':';
 ":="            return ASSIGNMENT;
-"var"           return VAR;
-"of"            return OF;
-"array"         return ARRAY;
 ".."            return RANGELIST_SEPARATOR;
-"program"       return PROGRAM;
-"function"      return FUNCTION;
-"ref"           return REF;
-"unit"          return UNIT_TYPE;
-"int"           return INT_TYPE;
-"bool"          return BOOL_TYPE;
-
 "+"             return OPB_PLUS;
 "-"             return OP_MINUS;
 "*"             return OPB_STAR;
@@ -75,6 +65,25 @@
 "or"            return OPB_OR;
 "xor"           return OPB_XOR;
 "not"           return OPU_NOT;
+"var"           return VAR;
+"of"            return OF;
+"array"         return ARRAY;
+"program"       return PROGRAM;
+"function"      return FUNCTION;
+"ref"           return REF;
+"unit"          return UNIT_TYPE;
+"int"           return INT_TYPE;
+"bool"          return BOOL_TYPE;
+"read"          return READ;
+"write"         return WRITE;
+"begin"         return BEGIN_;
+"end"           return END;
+"if"            return IF;
+"then"          return THEN;
+"else"          return ELSE;
+"return"        return RETURN;
+"while"         return WHILE;
+"do"            return DO;
 
 [a-zA-Z_][a-zA-Z_1-9]* {
     yylval.str_u = malloc(yyleng+1);
