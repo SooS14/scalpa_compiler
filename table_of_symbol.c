@@ -195,10 +195,10 @@ int is_symbol_in_table(char *identname, int scope) {
             symbol_table.symbols[i].var_func_par == VAR_T)) &&
             size == symbol_table.symbols[i].ident_length &&
             !strncmp(identname, symbol_table.symbols[i].ident, size)) {
-                return 1;
+                return i;
         }
     }
-    return 0;
+    return -1;
 }
 
 void realloc_table () {
@@ -243,7 +243,8 @@ void add_vardecl_table (struct linked_list *identlist,
                         struct typename_t *_typename) {
     while (list_len(identlist) != 0) {
         char *new_ident_name = (char *)list_get_first(identlist);
-        if (is_symbol_in_table(new_ident_name, symbol_table.cur_symbol_scope)) {
+        if (is_symbol_in_table(new_ident_name, symbol_table.cur_symbol_scope) 
+            != -1) {
             handle_error("identifier [%s] already declared.", new_ident_name);
         }
         realloc_table();
@@ -282,7 +283,8 @@ void add_vardecllist_table(struct linked_list *vardecllist) {
 void add_paramlist_table(struct linked_list *parlist) {
     while (list_len(parlist) != 0) {
         struct param_t *param = (struct param_t *)list_get_first(parlist);
-        if (is_symbol_in_table(param->ident, symbol_table.cur_symbol_scope)) {
+        if (is_symbol_in_table(param->ident, symbol_table.cur_symbol_scope)
+            != -1) {
             handle_error("identifier [%s] already declared.", param->ident);
         }
         realloc_table();
@@ -315,7 +317,7 @@ void add_paramlist_table(struct linked_list *parlist) {
 void add_func_ident_table(char *ident, 
                           int atomictype, 
                           struct linked_list *parlist) {
-    if (is_symbol_in_table(ident, 0)) {
+    if (is_symbol_in_table(ident, 0) != -1) {
         handle_error("identifier [%s] already declared.", ident);
     }
     realloc_table();

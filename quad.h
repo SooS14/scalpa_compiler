@@ -57,8 +57,8 @@ struct quad_list_t {
 //TODO maybe use linked list ?
 struct quad_list_t* create_quad_list(int position);
 
-struct quad_list_t* concat_quad_list(struct quad_list_t* l1, 
-                                     struct quad_list_t* l2);
+struct quad_list_t* concat_quad_list(struct quad_list_t* list_1, 
+                                     struct quad_list_t* list_2);
 
 void complete_quad_list(struct quad_list_t* liste, int target);
 

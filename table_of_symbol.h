@@ -29,9 +29,10 @@ void display_symbol_table();
 
 /**
  * @brief check if an identifier already exist in the table for a given scope
+ * and return its index in table 
  * @param identname, name of the symbol
  * @param scope, scope of the symbol
- * @result 1 if symbol is in table, else 0
+ * @result index if symbol is in table, else -1
  */
 int is_symbol_in_table(char *identname, int scope);
 

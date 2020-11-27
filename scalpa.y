@@ -139,6 +139,7 @@ void write_data() {
     struct vardecl_t *vardecl_u;
     struct fundecl_t *fundecl_u;
     struct lvalue_t lvalue_u;
+    int instr_u;// need a type for instr or yacc doesn't compile 
 }
 
 %token <cst_u> CTE
@@ -177,8 +178,8 @@ program :
         add_fundecllist_table($4);
         free($2);
         write_data();
-    }
-/* TODO instr add later */
+    } instr
+/* TODO instr add later (after the bracket*/
 
 /* -------------------------------------------------------------------------- */
 /*                         variable declaration                               */
@@ -274,7 +275,7 @@ fundecllist :
 fundecl : FUNCTION IDENT '(' parlist ')' ':' atomictype vardecllist {
     $$ = create_fundecl($2, $7, $4, $8);
 }
-// TODO instr add later
+/* TODO instr add later (after the bracket)*/
 
 parlist : 
       /* empty */ {$$ = NULL;}
@@ -319,7 +320,7 @@ instr :
       IF expr THEN instr 
     | IF expr THEN instr ELSE instr
     | WHILE expr DO instr 
-    | lvalue ASSIGNMENT expr {lvalue}
+    | lvalue ASSIGNMENT expr {printf("TEST here : \n");}
     | RETURN expr 
     | RETURN
     | IDENT '(' exprlist ')'
@@ -339,12 +340,31 @@ sequence :
 /* -------------------------------------------------------------------------- */
 
 lvalue :
-      IDENT                   {}
-    | IDENT '[' exprlist ']'  {}
+      IDENT {
+        $$.ptr = is_symbol_in_table($1, 0); // TODO scope for function
+        $$.symbol_type = ATOMIC_TYPE;
+        $$.exprelist = NULL;
+        printf("ptr = %i\n", $$.ptr);
+    }
+    | IDENT '[' exprlist ']' {
+        $$.ptr = is_symbol_in_table($1, 0); // TODO scope for function
+        $$.symbol_type = ARRAY_TYPE;
+        $$.exprelist = $3;
+        printf("ptr = %i\n", $$.ptr);
+        // TODO verif size of list and ident list size, error if different 
+    }
 
 exprlist :
-      expr                    {printf("TODO expr\n");}
-    | expr ',' exprlist       {printf("TODO expr , exprlist\n");}
+      expr {
+        //$$ = list_init();
+        //list_push($$, &$1, sizeof(struct expr_t));
+        // TODO CREATE A NEW EXPR_T TYPE
+    }
+    | expr ',' exprlist {
+        //list_push($3, &$1, sizeof(struct expr_t));
+        //$$ = $3;
+        // TODO CREATE A NEW EXPR_T TYPE
+    }
 
 expr :
       CTE                     {$$ = $1;}

@@ -49,10 +49,8 @@ struct cste_value_t {
 };
 
 struct lvalue_t {
-    // name of the variable
-    char * ident;
     //index of variable in symbol table
-    int index;
+    int ptr;
     // symbol type : atomic_type / array_type
     enum symbol_type_t symbol_type;
     // if ident is an array then exprelist represent the index of the element 
