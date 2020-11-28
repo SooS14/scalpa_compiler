@@ -17,10 +17,11 @@
 
 #define INIT_TABLE_SIZE 1024
 
-enum type_t {INT, STRING, BOOL};
-enum atomic_type_t {INT_A, BOOL_A, VOID_A};
+enum type_t {INT, BOOL, STRING}; // order is important
+enum atomic_type_t {INT_A, BOOL_A, VOID_A}; // order is important
 enum symbol_type_t {ATOMIC_TYPE, ARRAY_TYPE, FUNCTION_TYPE, PARAMETER_TYPE};
 enum var_func_par_t {VAR_T, FUNC_T, PARAM_T}; // find an other name later
+enum quad_op_type_t {QO_CST, QO_VAR, QO_TEMP};
 
 /**
  * @brief Print an error message in stderr and exit program with EXIT_FAILURE
@@ -36,16 +37,26 @@ noreturn void handle_error(const char * msg, ...);
  */
 noreturn void handle_perror(const char * msg, ...);
 
-struct cste_value_t {
+struct expr_t {
+    enum quad_op_type_t quad_op_type; // cst var or temp
     enum type_t type;
     union {
-        // int constant
-        int iconst;
-        // string constant
-        char *sconst;
-        // bool constant
-        int bconst;
-    } val;
+        union {
+            int const_int;
+            char *const_string;
+            int const_bool;
+        } const_value;
+        struct {
+            //index of variable in symbol table
+            int ptr;
+            // symbol type : atomic_type / array_type
+            enum symbol_type_t symbol_type;
+            // if ident is an array then exprlist represent the index of the 
+            // element to access, exprlist need to have the same size as 
+            struct linked_list *exprlist;
+        } var;
+        int temp_ptr;
+    };
 };
 
 struct lvalue_t {
@@ -55,7 +66,7 @@ struct lvalue_t {
     enum symbol_type_t symbol_type;
     // if ident is an array then exprelist represent the index of the element 
     // to access, exprlist need to have the same size as 
-    struct linked_list *exprelist;
+    struct linked_list *exprlist;
 };
 
 struct typename_t {

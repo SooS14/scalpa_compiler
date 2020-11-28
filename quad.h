@@ -1,8 +1,9 @@
 #ifndef QUAD_H
 #define QUAD_H
 
+#include "scalpa.h"
+
 #define GOTO_INCOMPLETE -1
-#define NO_GOTO -2
 
 enum instruction_t {
     GOTO_QUAD, 
@@ -12,27 +13,48 @@ enum instruction_t {
     IF_LT_EQ_QUAD, 
     IF_GT_EQ_QUAD, 
     IF_EQ_QUAD, 
-    IF_DIFF_QUAD
-};
-
-enum quad_op_type_t {QO_CST, QO_NAME};
+    IF_DIFF_QUAD,
+    OPB_PLUS_QUAD,
+    OPB_MINUS_QUAD,
+    OPB_STAR_QUAD,
+    OPB_DIVIDE_QUAD,
+    OPB_POW_QUAD,
+    OPB_LT_QUAD,
+    OPB_LT_EQ_QUAD,
+    OPB_GT_QUAD,
+    OPB_GT_EQ_QUAD,
+    OPB_EQ_QUAD,
+    OPB_DIFF_QUAD,
+    OPB_AND_QUAD,
+    OPB_OR_QUAD,
+    OPB_XOR_QUAD,
+    OPU_MINUS_QUAD,
+    OPU_NOT_QUAD
+};// REMOVE AND OR XOR etc
 
 struct quad_op_t {
     enum quad_op_type_t quad_op_type;
     union {
         int cst;
-        char *ident;
+        int ptr;
+        int temp_ptr;
     } value;
 };
 
 struct quad_t {
-    // IF op1 op2 target
-    // GOTO NULL NULL target
-    // AFF op1 op2
+    // {IF op1 op2 target}
+    // {GOTO _ _ target}
+    // {AFF res _ op1}
+    // {OPB op1 op2 res}
+    // {OPU res _ op1}
     enum instruction_t instruction;
     struct quad_op_t op1;
     struct quad_op_t op2;
-    int target; // goto target (-1 if incomplete)
+    union {
+        struct quad_op_t res;
+        int target;
+    };
+    int quad_4; // type of union res=0, target=1
 };
 
 struct quad_table_t {
@@ -45,7 +67,11 @@ void init_quad_table();
 
 void free_quad_table();
 
-void display_quad(struct quad_t);
+void display_quad_op(struct quad_op_t quad_op);
+
+void display_instruction(int instr);
+
+void display_quad(struct quad_t quad);
 
 void display_quad_table();
 
@@ -64,7 +90,11 @@ void complete_quad_list(struct quad_list_t* liste, int target);
 
 void free_quad_list();
 
-void gencode(int instruction, struct quad_op_t op1, struct quad_op_t op2);
+void gencode (int instruction, 
+              struct quad_op_t op1, 
+              struct quad_op_t op2,
+              struct quad_op_t res);
 
+int newtemp();
 
 #endif

@@ -10,34 +10,38 @@
 \(\*([^*]|[\r\n]|(\*+([^*\)]|[\r\n])))*\*+\) (void)0;
 
 [0-9]+ {
-    struct cste_value_t temp;
+    struct expr_t temp;
+    temp.quad_op_type = QO_CST;
     temp.type = INT;
-    temp.val.iconst = atoi(yytext);
-    yylval.cst_u = temp;
+    temp.const_value.const_int = atoi(yytext);
+    yylval.expr_u = temp;
     return CTE;
 }
 \"(((\\\")|[^\"]))*\" {
-    struct cste_value_t temp;
+    struct expr_t temp;
+    temp.quad_op_type = QO_CST;
     temp.type = STRING;
-    temp.val.sconst = malloc(yyleng + 1);
-    MCHECK(temp.val.sconst);
-    strncpy(temp.val.sconst , yytext, yyleng);
-    temp.val.sconst[yyleng] = '\0';
-    yylval.cst_u = temp;
+    temp.const_value.const_string = malloc(yyleng + 1);
+    MCHECK(temp.const_value.const_string);
+    strncpy(temp.const_value.const_string , yytext, yyleng);
+    temp.const_value.const_string[yyleng] = '\0';
+    yylval.expr_u = temp;
     return CTE;
 }
 "true" {
-    struct cste_value_t temp;
+    struct expr_t temp;
+    temp.quad_op_type = QO_CST;
     temp.type = BOOL;
-    temp.val.bconst = 1;
-    yylval.cst_u = temp;
+    temp.const_value.const_bool = 1;
+    yylval.expr_u = temp;
     return CTE;
 }
 "false" {
-    struct cste_value_t temp;
+    struct expr_t temp;
+    temp.quad_op_type = QO_CST;
     temp.type = BOOL;
-    temp.val.bconst = 0;
-    yylval.cst_u = temp;
+    temp.const_value.const_bool = 0;
+    yylval.expr_u = temp;
     return CTE;
 }
 

@@ -29,11 +29,13 @@ void yyerror(const char * msg);
 /*                    operation on  constant expression                       */
 /* -------------------------------------------------------------------------- */
 
+int get_instr(int op, int is_unary);
+
 /*
- * Display an element of type cste_value_t
+ * Display an element of type expr_t
  * print its type and value
  */
-void display_cste(struct cste_value_t cste);
+void display_cste (struct expr_t cste);
 
 /*
  * write the string associated the operator code : op in str_op
@@ -46,16 +48,14 @@ void get_operator_str (int op, char (*str_op)[5]);
  * example : string + string, true < false, int xor int
  * exit if expr1 and expr2 have different type
  */
-struct cste_value_t compute_opb(struct cste_value_t expr1, 
-                                struct cste_value_t expr2,
-                                int opb);
+struct expr_t compute_opb (struct expr_t expr1, struct expr_t expr2, int opb);
 
 /*
  * Compute and return the result of : opu expr
  * exit if expr have a type that doesn't support opu
  * example : opu string, - bool, not int
  */
-struct cste_value_t compute_opu(struct cste_value_t expr, int opu);
+struct expr_t compute_opu (struct expr_t expr, int opu);
 
 /* -------------------------------------------------------------------------- */
 /*                             write spim file                                */
@@ -130,7 +130,7 @@ void write_data() {
 }
 
 %union {
-    struct cste_value_t cst_u;
+    struct expr_t expr_u;
     int int_u;
     char *str_u;
     struct linked_list *list_u;
@@ -142,9 +142,9 @@ void write_data() {
     int instr_u;// need a type for instr or yacc doesn't compile 
 }
 
-%token <cst_u> CTE
+%token <expr_u> CTE
 %token <str_u> IDENT
-%type <cst_u> expr
+%type <expr_u> expr
 %type <int_u> opb opu
 %type <int_u> atomictype integer
 %type <typename_u> typename arraytype
@@ -251,8 +251,8 @@ rangelist :
 
 integer :
     expr {
-        if ($1.type == INT) {
-            $$ = $1.val.iconst;
+        if ($1.type == INT && $1.quad_op_type == QO_CST) {
+            $$ = $1.const_value.const_int;
         }
         else {
             handle_error("elements of a rangelist for array declaration\
@@ -343,13 +343,13 @@ lvalue :
       IDENT {
         $$.ptr = is_symbol_in_table($1, 0); // TODO scope for function
         $$.symbol_type = ATOMIC_TYPE;
-        $$.exprelist = NULL;
+        $$.exprlist = NULL;
         printf("ptr = %i\n", $$.ptr);
     }
     | IDENT '[' exprlist ']' {
         $$.ptr = is_symbol_in_table($1, 0); // TODO scope for function
         $$.symbol_type = ARRAY_TYPE;
-        $$.exprelist = $3;
+        $$.exprlist = $3;
         printf("ptr = %i\n", $$.ptr);
         // TODO verif size of list and ident list size, error if different 
     }
@@ -359,6 +359,7 @@ exprlist :
         //$$ = list_init();
         //list_push($$, &$1, sizeof(struct expr_t));
         // TODO CREATE A NEW EXPR_T TYPE
+        // TODO CHECK IF int (or bool) no string allowed
     }
     | expr ',' exprlist {
         //list_push($3, &$1, sizeof(struct expr_t));
@@ -368,13 +369,64 @@ exprlist :
 
 expr :
       CTE                     {$$ = $1;}
-    | '(' expr ')'            {$$ = $2;}
-    | expr opb expr %prec OPB {$$ = compute_opb($1, $3, $2);}
-    | opu expr %prec OPU      {$$ = compute_opu($2, $1);}
+    | '(' expr ')' {$$ = $2;}
+    | expr opb expr %prec OPB {
+        if ($1.type == STRING || $3.type == STRING) {
+            handle_error("No operation allowed for type string");
+        }
+        if ($1.type != $3.type) {
+            handle_error("No operation allowed between int and bool"
+            " : expr1 is type [%s] and expr2 is type [%s]", 
+            $1.type == INT ? "int" : "bool", $3.type == INT ? "int" : "bool");
+        }
+        $$.quad_op_type = QO_TEMP;
+        $$.type = $1.type;
+        $$.temp_ptr = newtemp();
+        // TODO check if op is possible between types (+, -, / for int ...)
+        struct quad_op_t op1;
+        struct quad_op_t op2;
+        struct quad_op_t res;
+        op1.quad_op_type = $1.quad_op_type;
+        switch (op1.quad_op_type) {
+            case QO_CST  : 
+            ($1.type == BOOL) ?
+                (op1.value.cst = $1.const_value.const_bool) :
+                (op1.value.cst = $1.const_value.const_int);
+            break;
+            case QO_VAR  : op1.value.ptr = $1.var.ptr; break;
+            case QO_TEMP : op1.value.temp_ptr = $1.temp_ptr; break;
+        }
+        op2.quad_op_type = $3.quad_op_type;
+        switch (op2.quad_op_type) {
+            case QO_CST  : 
+            ($3.type == BOOL) ?
+                (op2.value.cst = $3.const_value.const_bool) :
+                (op2.value.cst = $3.const_value.const_int);
+            break;
+            case QO_VAR  : op2.value.ptr = $3.var.ptr; break;
+            case QO_TEMP : op2.value.temp_ptr = $3.temp_ptr; break;
+        }
+        res.quad_op_type = QO_TEMP;
+        res.value.temp_ptr = $$.temp_ptr;
+        gencode (get_instr($2, 0), op1, op2, res);
+        }
+    | opu expr %prec OPU {
+        // TODO
+        //$$ = compute_opu($2, $1);
+        }
     | IDENT '(' exprlist ')'  {printf("TODO IDENT ( exprlist )\n");}
     | IDENT '(' ')'           {printf("TODO IDENT ( )\n");}
     | IDENT '[' exprlist ']'  {printf("TODO IDENT [ exprlist ]\n");}
-    | IDENT                   {printf("TODO IDENT\n");}
+    | IDENT {
+        if (($$.var.ptr = is_symbol_in_table($1, 0)) == -1) { // TODO FIX SCOPE
+            handle_error("variable [%s] is not declared in this scope", $1);
+        }
+        $$.quad_op_type = QO_VAR;
+        $$.type = 
+            symbol_table.symbols[$$.var.ptr].type.var.typename->atomic_type;
+        $$.var.symbol_type = ATOMIC_TYPE;
+        $$.var.exprlist = NULL;
+        }
 
 opb : 
       OPB_PLUS   {$$ = OPB_PLUS;}
@@ -437,11 +489,36 @@ void check_snprintf(int result, int wsize) {
 
 /* -------------------------------------------------------------------------- */
 
-void display_cste(struct cste_value_t cste) {
+int get_instr(int op, int is_unary) {
+    switch (op) {
+        case OPB_PLUS:   return OPB_PLUS_QUAD;   break;
+        case OPB_STAR:   return OPB_STAR_QUAD;   break;
+        case OPB_DIVIDE: return OPB_DIVIDE_QUAD; break;
+        case OPB_POW:    return OPB_POW_QUAD;    break;
+        case OPB_L:      return OPB_LT_QUAD;     break;
+        case OPB_L_EQ:   return OPB_LT_EQ_QUAD;  break;
+        case OPB_G:      return OPB_GT_QUAD;     break;
+        case OPB_G_EQ:   return OPB_GT_EQ_QUAD;  break;
+        case OPB_EQ:     return OPB_EQ_QUAD;     break;
+        case OPB_DIFF:   return OPB_DIFF_QUAD;   break;
+        case OPB_AND:    return OPB_AND_QUAD;    break;
+        case OPB_OR:     return OPB_OR_QUAD;     break;
+        case OPB_XOR:    return OPB_XOR_QUAD;    break;
+        case OPU_NOT:    return OPU_NOT_QUAD;    break;
+        case OP_MINUS:   return is_unary ? OPU_MINUS_QUAD : OPB_MINUS_QUAD;
+        break;
+    }
+    return -1;
+}
+
+void display_cste(struct expr_t cste) {
     switch(cste.type) {
-        case INT:    printf("int : %i\n", cste.val.iconst);      break;
-        case STRING: printf("string : [%s]\n", cste.val.sconst); break;
-        case BOOL:   printf("bool : %i\n", cste.val.bconst);     break;
+        case INT:
+            printf("int : %i\n", cste.const_value.const_int);         break;
+        case STRING:
+            printf("string : [%s]\n", cste.const_value.const_string); break;
+        case BOOL:
+            printf("bool : %i\n", cste.const_value.const_bool);       break;
         default: break;
     }
 }
@@ -467,18 +544,16 @@ void get_operator_str (int op, char (*str_op)[5]) {
     }
 }
 
-struct cste_value_t compute_opb(struct cste_value_t expr1, 
-                                struct cste_value_t expr2,
-                                int opb) {
+/* struct expr_t compute_opb (struct expr_t expr1, struct expr_t expr2, int opb) {
     if (expr1.type == STRING || expr2.type == STRING) {
-        handle_error("No operation allowed for constant string");
+        handle_error("No operation allowed between strings");
     }
     if (expr1.type != expr2.type) {
-        handle_error("No operation allowed between int constant and bool\
- constant : expr1 is type [%s] and expr2 is type [%s]", 
+        handle_error("No operation allowed between int and bool"
+        " : expr1 is type [%s] and expr2 is type [%s]", 
         expr1.type == INT ? "int" : "bool", expr2.type == INT ? "int" : "bool");
     }
-    struct cste_value_t result;
+    struct expr_t result;
     char str_op[5];
     if (expr1.type == INT) {
         result.type = INT;
@@ -522,7 +597,7 @@ struct cste_value_t compute_opb(struct cste_value_t expr1,
                 result.type = BOOL;
                 result.val.bconst = (expr1.val.iconst != expr2.val.iconst);
                 break;
-            default : 
+            default :
                 get_operator_str(opb, &str_op);
                 handle_error("binary operator [%s] forbidden between int", 
                     str_op);
@@ -557,11 +632,11 @@ struct cste_value_t compute_opb(struct cste_value_t expr1,
     return result;
 }
 
-struct cste_value_t compute_opu(struct cste_value_t expr, int opu) {
+struct expr_t compute_opu(struct expr_t expr, int opu) {
     if (expr.type == STRING) {
         handle_error("No operation allowed for constant string");
     }
-    struct cste_value_t result;
+    struct expr_t result;
     if (expr.type == INT) {
         result.type = INT;
         if (opu == OP_MINUS) {
@@ -581,7 +656,7 @@ struct cste_value_t compute_opu(struct cste_value_t expr, int opu) {
         }
     }
     return result;
-}
+} */
 
 /* -------------------------------------------------------------------------- */
 
@@ -607,6 +682,7 @@ int main (int argc, char * argv[]) {
     if (args.flags & SYM_TABLE) {
         display_symbol_table();
     }
+    display_quad_table(); //debug
 
     CHECK(close(args.fd));
     free_symbol_table();
