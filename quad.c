@@ -43,15 +43,25 @@ void display_instruction(int instr) {
     }
 }
 
-void display_quad_op(struct quad_op_t quad_op) {
+void display_quad_op(struct expr_t quad_op) {
     switch (quad_op.quad_op_type) {
         case QO_CST  :
-        printf(" %i ", quad_op.value.cst); break;
+            switch (quad_op.type) {
+                case INT: printf(" %i ", quad_op.const_int); break;
+                case BOOL: printf(" %i ", quad_op.const_bool); break;
+                case STRING: printf(" %s ", quad_op.const_string); break;
+            } 
+            break;
         case QO_VAR  :
-        printf(" %s ", symbol_table.symbols[quad_op.value.ptr].ident); break;
+            printf(" %s", symbol_table.symbols[quad_op.var.ptr].ident);
+            if (quad_op.var.symbol_type == ARRAY_TYPE) {
+                printf("[%i]", quad_op.var.index);
+            }
+            printf(" ");
+            break;
         case QO_TEMP :
-        printf(" %%T%i ", quad_op.value.temp_ptr); break;
-        break;
+            printf(" %%T%i ", quad_op.temp_ptr);
+            break;
     }
 }
 
@@ -146,9 +156,9 @@ void complete_quad_list(struct quad_list_t* quad_list, int target) {
 void free_quad_list();
 
 void gencode (int instruction, 
-              struct quad_op_t op1, 
-              struct quad_op_t op2,
-              struct quad_op_t res) {
+              struct expr_t op1, 
+              struct expr_t op2,
+              struct expr_t res) {
     //realloc todo
     quad_table.quads[quad_table.nextquad].quad_4 = (instruction == GOTO_QUAD ||
          instruction == IF_GT_QUAD || instruction == IF_LT_QUAD ||

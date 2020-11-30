@@ -37,6 +37,15 @@ noreturn void handle_error(const char * msg, ...);
  */
 noreturn void handle_perror(const char * msg, ...);
 
+struct lvalue_t {
+    //index of variable in symbol table
+    int ptr;
+    // symbol type : atomic_type / array_type
+    enum symbol_type_t symbol_type;
+    // index of element in the array equivalent of depl in the lecture
+    int index;
+};
+
 struct expr_t {
     enum quad_op_type_t quad_op_type; // cst var or temp
     enum type_t type;
@@ -45,28 +54,10 @@ struct expr_t {
             int const_int;
             char *const_string;
             int const_bool;
-        } const_value;
-        struct {
-            //index of variable in symbol table
-            int ptr;
-            // symbol type : atomic_type / array_type
-            enum symbol_type_t symbol_type;
-            // if ident is an array then exprlist represent the index of the 
-            // element to access, exprlist need to have the same size as 
-            struct linked_list *exprlist;
-        } var;
+        };
+        struct lvalue_t var;
         int temp_ptr;
     };
-};
-
-struct lvalue_t {
-    //index of variable in symbol table
-    int ptr;
-    // symbol type : atomic_type / array_type
-    enum symbol_type_t symbol_type;
-    // if ident is an array then exprelist represent the index of the element 
-    // to access, exprlist need to have the same size as 
-    struct linked_list *exprlist;
 };
 
 struct typename_t {

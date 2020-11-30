@@ -139,7 +139,7 @@ void write_data() {
     struct vardecl_t *vardecl_u;
     struct fundecl_t *fundecl_u;
     struct lvalue_t lvalue_u;
-    int instr_u;// need a type for instr or yacc doesn't compile 
+    int instr_u; // need a type for instr or yacc refuse to compile 
 }
 
 %token <expr_u> CTE
@@ -179,7 +179,6 @@ program :
         free($2);
         write_data();
     } instr
-/* TODO instr add later (after the bracket*/
 
 /* -------------------------------------------------------------------------- */
 /*                         variable declaration                               */
@@ -252,11 +251,11 @@ rangelist :
 integer :
     expr {
         if ($1.type == INT && $1.quad_op_type == QO_CST) {
-            $$ = $1.const_value.const_int;
+            $$ = $1.const_int;
         }
         else {
-            handle_error("elements of a rangelist for array declaration\
- must be integers\n");
+            handle_error("elements of a rangelist for array declaration "
+                "must be integers\n");
         }
     }
 
@@ -320,14 +319,22 @@ instr :
       IF expr THEN instr 
     | IF expr THEN instr ELSE instr
     | WHILE expr DO instr 
-    | lvalue ASSIGNMENT expr {printf("TEST here : \n");}
+    | lvalue ASSIGNMENT expr {
+        printf("TEST here : \n");
+        // TODO check that type != STRING
+        struct expr_t res;
+        res.var = $1;
+        res.type = $3.type;
+        res.quad_op_type = QO_VAR;
+        gencode (AFF_QUAD, $3, $3, res);
+        }
     | RETURN expr 
     | RETURN
     | IDENT '(' exprlist ')'
     | IDENT '(' ')' 
     | BEGIN_ sequence END 
     | BEGIN_ END
-    | READ lvalue 
+    | READ lvalue
     | WRITE expr
 
 sequence :
@@ -343,32 +350,37 @@ lvalue :
       IDENT {
         $$.ptr = is_symbol_in_table($1, 0); // TODO scope for function
         $$.symbol_type = ATOMIC_TYPE;
-        $$.exprlist = NULL;
-        printf("ptr = %i\n", $$.ptr);
+        $$.index = 0;
+        printf("atomic ptr = %i\n", $$.ptr);
     }
     | IDENT '[' exprlist ']' {
         $$.ptr = is_symbol_in_table($1, 0); // TODO scope for function
         $$.symbol_type = ARRAY_TYPE;
-        $$.exprlist = $3;
-        printf("ptr = %i\n", $$.ptr);
+        $$.index = 999; // TODO FUNCTION 
+        printf("array ptr = %i\n", $$.ptr);
         // TODO verif size of list and ident list size, error if different 
     }
 
 exprlist :
       expr {
-        //$$ = list_init();
-        //list_push($$, &$1, sizeof(struct expr_t));
-        // TODO CREATE A NEW EXPR_T TYPE
-        // TODO CHECK IF int (or bool) no string allowed
+        $$ = list_init();
+        if ($1.type != INT) {
+            handle_error("bool or string can't serve as element indexation"
+            "in an array, only integers allowed.");
+        }
+        list_push($$, &$1, sizeof(struct expr_t));
     }
     | expr ',' exprlist {
-        //list_push($3, &$1, sizeof(struct expr_t));
-        //$$ = $3;
-        // TODO CREATE A NEW EXPR_T TYPE
+        if ($1.type != INT) {
+            handle_error("bool or string can't serve as element indexation"
+            "in an array, only integers allowed.");
+        }
+        list_push($3, &$1, sizeof(struct expr_t));
+        $$ = $3;
     }
 
 expr :
-      CTE                     {$$ = $1;}
+      CTE {$$ = $1;}
     | '(' expr ')' {$$ = $2;}
     | expr opb expr %prec OPB {
         if ($1.type == STRING || $3.type == STRING) {
@@ -379,44 +391,47 @@ expr :
             " : expr1 is type [%s] and expr2 is type [%s]", 
             $1.type == INT ? "int" : "bool", $3.type == INT ? "int" : "bool");
         }
-        $$.quad_op_type = QO_TEMP;
-        $$.type = $1.type;
-        $$.temp_ptr = newtemp();
-        // TODO check if op is possible between types (+, -, / for int ...)
-        struct quad_op_t op1;
-        struct quad_op_t op2;
-        struct quad_op_t res;
-        op1.quad_op_type = $1.quad_op_type;
-        switch (op1.quad_op_type) {
-            case QO_CST  : 
-            ($1.type == BOOL) ?
-                (op1.value.cst = $1.const_value.const_bool) :
-                (op1.value.cst = $1.const_value.const_int);
-            break;
-            case QO_VAR  : op1.value.ptr = $1.var.ptr; break;
-            case QO_TEMP : op1.value.temp_ptr = $1.temp_ptr; break;
+        if ($1.quad_op_type == QO_CST && $3.quad_op_type == QO_CST) {
+            $$ = compute_opb ($1, $3, $2);
         }
-        op2.quad_op_type = $3.quad_op_type;
-        switch (op2.quad_op_type) {
-            case QO_CST  : 
-            ($3.type == BOOL) ?
-                (op2.value.cst = $3.const_value.const_bool) :
-                (op2.value.cst = $3.const_value.const_int);
-            break;
-            case QO_VAR  : op2.value.ptr = $3.var.ptr; break;
-            case QO_TEMP : op2.value.temp_ptr = $3.temp_ptr; break;
+        else {
+            // TODO check if op is possible between types (+, -, / for int ...
+            // for not const expr)
+            // TODO type of result for 1 < 3 should be bool -> fix it
+            $$.quad_op_type = QO_TEMP;
+            $$.type = $1.type;
+            $$.temp_ptr = newtemp();
+            gencode (get_instr($2, 0), $1, $3, $$);
         }
-        res.quad_op_type = QO_TEMP;
-        res.value.temp_ptr = $$.temp_ptr;
-        gencode (get_instr($2, 0), op1, op2, res);
         }
     | opu expr %prec OPU {
-        // TODO
-        //$$ = compute_opu($2, $1);
+        if ($2.type == STRING) {
+            handle_error("No operation allowed for type string");
+        }
+        if ($2.quad_op_type == QO_CST) {
+            $$ = compute_opu($2, $1);
+        }
+        else {
+            // TODO check if operation is allowed for $2 type
+            $$.quad_op_type = QO_TEMP;
+            $$.type = $2.type;
+            $$.temp_ptr = newtemp();
+            gencode (get_instr($1, 1), $2, $2, $$);
+        }
         }
     | IDENT '(' exprlist ')'  {printf("TODO IDENT ( exprlist )\n");}
     | IDENT '(' ')'           {printf("TODO IDENT ( )\n");}
-    | IDENT '[' exprlist ']'  {printf("TODO IDENT [ exprlist ]\n");}
+    | IDENT '[' exprlist ']'  {
+        printf("TODO IDENT [ exprlist ]\n");
+        if (($$.var.ptr = is_symbol_in_table($1, 0)) == -1) { // TODO FIX SCOPE
+            handle_error("variable [%s] is not declared in this scope", $1);
+        }
+        $$.quad_op_type = QO_VAR;
+        $$.type = 
+            symbol_table.symbols[$$.var.ptr].type.var.typename->atomic_type;
+        $$.var.symbol_type = ARRAY_TYPE;
+        $$.var.index = 999; // TODO FUNCTION
+        }
     | IDENT {
         if (($$.var.ptr = is_symbol_in_table($1, 0)) == -1) { // TODO FIX SCOPE
             handle_error("variable [%s] is not declared in this scope", $1);
@@ -425,7 +440,7 @@ expr :
         $$.type = 
             symbol_table.symbols[$$.var.ptr].type.var.typename->atomic_type;
         $$.var.symbol_type = ATOMIC_TYPE;
-        $$.var.exprlist = NULL;
+        $$.var.index = 0;
         }
 
 opb : 
@@ -514,11 +529,11 @@ int get_instr(int op, int is_unary) {
 void display_cste(struct expr_t cste) {
     switch(cste.type) {
         case INT:
-            printf("int : %i\n", cste.const_value.const_int);         break;
+            printf("int : %i\n", cste.const_int);         break;
         case STRING:
-            printf("string : [%s]\n", cste.const_value.const_string); break;
+            printf("string : [%s]\n", cste.const_string); break;
         case BOOL:
-            printf("bool : %i\n", cste.const_value.const_bool);       break;
+            printf("bool : %i\n", cste.const_bool);       break;
         default: break;
     }
 }
@@ -544,103 +559,76 @@ void get_operator_str (int op, char (*str_op)[5]) {
     }
 }
 
-/* struct expr_t compute_opb (struct expr_t expr1, struct expr_t expr2, int opb) {
-    if (expr1.type == STRING || expr2.type == STRING) {
-        handle_error("No operation allowed between strings");
-    }
-    if (expr1.type != expr2.type) {
-        handle_error("No operation allowed between int and bool"
-        " : expr1 is type [%s] and expr2 is type [%s]", 
-        expr1.type == INT ? "int" : "bool", expr2.type == INT ? "int" : "bool");
-    }
+struct expr_t compute_opb (struct expr_t expr1, struct expr_t expr2, int opb) {
     struct expr_t result;
+    result.quad_op_type = QO_CST;
     char str_op[5];
     if (expr1.type == INT) {
         result.type = INT;
         switch(opb) {
-            case OPB_PLUS   :
-                result.val.iconst = expr1.val.iconst + expr2.val.iconst;
-                break;
-            case OP_MINUS   :
-                result.val.iconst = expr1.val.iconst - expr2.val.iconst;
-                break;
-            case OPB_STAR   :
-                result.val.iconst = expr1.val.iconst * expr2.val.iconst;
-                break;
-            case OPB_DIVIDE :
-                result.val.iconst = expr1.val.iconst / expr2.val.iconst;
-                break;
-            case OPB_POW    :
-                result.val.iconst = pow(expr1.val.iconst, expr2.val.iconst);
-                break;
-            case OPB_L      :
-                result.type = BOOL;
-                result.val.bconst = (expr1.val.iconst < expr2.val.iconst);
-                break;
-            case OPB_L_EQ   :
-                result.type = BOOL;
-                result.val.bconst = (expr1.val.iconst <= expr2.val.iconst);
-                break;
-            case OPB_G      :
-                result.type = BOOL;
-                result.val.bconst = (expr1.val.iconst > expr2.val.iconst);
-                break;
-            case OPB_G_EQ   :
-                result.type = BOOL;
-                result.val.bconst = (expr1.val.iconst >= expr2.val.iconst);
-                break;
-            case OPB_EQ     :
-                result.type = BOOL;
-                result.val.bconst = (expr1.val.iconst == expr2.val.iconst);
-                break;
-            case OPB_DIFF   :
-                result.type = BOOL;
-                result.val.bconst = (expr1.val.iconst != expr2.val.iconst);
-                break;
-            default :
-                get_operator_str(opb, &str_op);
-                handle_error("binary operator [%s] forbidden between int", 
-                    str_op);
-                break;
+        case OPB_PLUS   :
+            result.const_int = expr1.const_int + expr2.const_int; break;
+        case OP_MINUS   :
+            result.const_int = expr1.const_int - expr2.const_int; break;
+        case OPB_STAR   :
+            result.const_int = expr1.const_int * expr2.const_int; break;
+        case OPB_DIVIDE :
+            result.const_int = expr1.const_int / expr2.const_int; break;
+        case OPB_POW    :
+            result.const_int = pow(expr1.const_int, expr2.const_int); break;
+        case OPB_L      :
+            result.type = BOOL;
+            result.const_bool = (expr1.const_int < expr2.const_int);break;
+        case OPB_L_EQ   :
+            result.type = BOOL;
+            result.const_bool = (expr1.const_int <= expr2.const_int);break;
+        case OPB_G      :
+            result.type = BOOL;
+            result.const_bool = (expr1.const_int > expr2.const_int);break;
+        case OPB_G_EQ   :
+            result.type = BOOL;
+            result.const_bool = (expr1.const_int >= expr2.const_int);break;
+        case OPB_EQ     :
+            result.type = BOOL;
+            result.const_bool = (expr1.const_int == expr2.const_int); break;
+        case OPB_DIFF   :
+            result.type = BOOL;
+            result.const_bool = (expr1.const_int != expr2.const_int); break;
+        default :
+            get_operator_str(opb, &str_op);
+            handle_error("binary operator [%s] forbidden between int", str_op);
+            break;
         }
     }
     else {
         result.type = BOOL;
         switch(opb) {
-            case OPB_EQ     :
-                result.val.bconst = (expr1.val.bconst == expr2.val.bconst);
-                break;
-            case OPB_DIFF   :
-                result.val.bconst = (expr1.val.bconst != expr2.val.bconst);
-                break;
-            case OPB_AND    :
-                result.val.bconst = (expr1.val.bconst && expr2.val.bconst);
-                break;
-            case OPB_OR     :
-                result.val.bconst = (expr1.val.bconst || expr2.val.bconst);
-                break;
-            case OPB_XOR    :
-                result.val.bconst = (expr1.val.bconst ^ expr2.val.bconst);
-                break;
-            default :
-                get_operator_str(opb, &str_op);
-                handle_error("binary operator [%s] forbidden between bool", 
-                    str_op);
-                break;
+        case OPB_EQ     :
+            result.const_bool = (expr1.const_bool == expr2.const_bool); break;
+        case OPB_DIFF   :
+            result.const_bool = (expr1.const_bool != expr2.const_bool); break;
+        case OPB_AND    :
+            result.const_bool = (expr1.const_bool && expr2.const_bool); break;
+        case OPB_OR     :
+            result.const_bool = (expr1.const_bool || expr2.const_bool); break;
+        case OPB_XOR    :
+            result.const_bool = (expr1.const_bool ^ expr2.const_bool); break;
+        default :
+            get_operator_str(opb, &str_op);
+            handle_error("binary operator [%s] forbidden between bool", str_op);
+            break;
         }
     }
     return result;
 }
 
 struct expr_t compute_opu(struct expr_t expr, int opu) {
-    if (expr.type == STRING) {
-        handle_error("No operation allowed for constant string");
-    }
     struct expr_t result;
+    result.quad_op_type = QO_CST;
     if (expr.type == INT) {
         result.type = INT;
         if (opu == OP_MINUS) {
-            result.val.iconst = - expr.val.iconst;
+            result.const_int = - expr.const_int;
         }
         else {
             handle_error("unary operator [not] forbidden for int");
@@ -649,14 +637,14 @@ struct expr_t compute_opu(struct expr_t expr, int opu) {
     else {
         result.type = BOOL;
         if (opu == OPU_NOT) {
-            result.val.bconst = ! expr.val.bconst;
+            result.const_bool = ! expr.const_bool;
         }
         else {
             handle_error("unary operator [-] forbidden for bool");
         }
     }
     return result;
-} */
+}
 
 /* -------------------------------------------------------------------------- */
 
@@ -691,21 +679,11 @@ int main (int argc, char * argv[]) {
     return c;
 }
 
-/*
-J'ai des cc et d'autres projets a faire mais il faut dans un 1er temps refaire 
-les expressions dans la grammaire, en fait faudra reprendre ce qu'il a dans les 
-td et refaire ça proprement. Ensuite on pourra acceder au resultat de ces 
-expressions pour faire des listes exprlist ou dans des if while etc.
-Bon bref faut refaire proprement les expressions et generer les quadruplets en 
-meme temps. Si vous avez des questions appelez moi (antoine), la j'ai pas trop 
-le temps tout de suite
-*/
-
 /* TODO
 
 IMPORTANT
 
-NOT PRIORITY
+NOT PRIORITY (obsolete -> i'll do an update later of the new todos)
  - table of symbol add pointer (hash table ?)
  - improve display tos function \r in display improve, print scope ?
  - expr const or not if identifier for integer in arraytype

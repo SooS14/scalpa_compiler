@@ -13,7 +13,7 @@
     struct expr_t temp;
     temp.quad_op_type = QO_CST;
     temp.type = INT;
-    temp.const_value.const_int = atoi(yytext);
+    temp.const_int = atoi(yytext);
     yylval.expr_u = temp;
     return CTE;
 }
@@ -21,10 +21,10 @@
     struct expr_t temp;
     temp.quad_op_type = QO_CST;
     temp.type = STRING;
-    temp.const_value.const_string = malloc(yyleng + 1);
-    MCHECK(temp.const_value.const_string);
-    strncpy(temp.const_value.const_string , yytext, yyleng);
-    temp.const_value.const_string[yyleng] = '\0';
+    temp.const_string = malloc(yyleng + 1);
+    MCHECK(temp.const_string);
+    strncpy(temp.const_string , yytext, yyleng);
+    temp.const_string[yyleng] = '\0';
     yylval.expr_u = temp;
     return CTE;
 }
@@ -32,7 +32,7 @@
     struct expr_t temp;
     temp.quad_op_type = QO_CST;
     temp.type = BOOL;
-    temp.const_value.const_bool = 1;
+    temp.const_bool = 1;
     yylval.expr_u = temp;
     return CTE;
 }
@@ -40,7 +40,7 @@
     struct expr_t temp;
     temp.quad_op_type = QO_CST;
     temp.type = BOOL;
-    temp.const_value.const_bool = 0;
+    temp.const_bool = 0;
     yylval.expr_u = temp;
     return CTE;
 }

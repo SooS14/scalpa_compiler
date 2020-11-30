@@ -1,12 +1,11 @@
 (* Ceci est un exemple de code SCALPA *)
 program maxi
 var i,j,max : int;
-(*var val : array[-4..4, 0..10] of int*)
+var val : array[-4..4, 0..10] of int
 begin
 i := 2;
 j := 3;
-max := i - (j+1)*4/j;
-(*max := i+j;*)
-
-(*val[i,j] := 3;*)
+max := (i - (j+1)*4/j)+ (5*(4+3));
+val[i,j] := 3;
+max := val[2+i,3+j] + 12;
 end
