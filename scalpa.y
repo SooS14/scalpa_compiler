@@ -13,6 +13,7 @@
 #include "table_of_symbol.h"
 #include "args-parser.h"
 #include "quad.h"
+#include "expr.h"
 
 struct symbol_table_t symbol_table;
 struct quad_table_t quad_table;
@@ -25,37 +26,7 @@ int yylex_destroy(void);
 
 void yyerror(const char * msg);
 
-/* -------------------------------------------------------------------------- */
-/*                    operation on  constant expression                       */
-/* -------------------------------------------------------------------------- */
-
-int get_instr(int op, int is_unary);
-
-/*
- * Display an element of type expr_t
- * print its type and value
- */
-void display_cste (struct expr_t cste);
-
-/*
- * write the string associated the operator code : op in str_op
- */
-void get_operator_str (int op, char (*str_op)[5]);
-
-/*
- * Compute and return the result of : expr1 opb expr2 
- * exit if expr1 or expr2 have a type that doesn't support opb
- * example : string + string, true < false, int xor int
- * exit if expr1 and expr2 have different type
- */
-struct expr_t compute_opb (struct expr_t expr1, struct expr_t expr2, int opb);
-
-/*
- * Compute and return the result of : opu expr
- * exit if expr have a type that doesn't support opu
- * example : opu string, - bool, not int
- */
-struct expr_t compute_opu (struct expr_t expr, int opu);
+extern int current_line;
 
 /* -------------------------------------------------------------------------- */
 /*                             write spim file                                */
@@ -137,7 +108,6 @@ void write_data() {
     struct typename_t *typename_u;
     struct param_t par_u;
     struct vardecl_t *vardecl_u;
-    struct fundecl_t *fundecl_u;
     struct lvalue_t lvalue_u;
     int instr_u; // need a type for instr or yacc refuse to compile 
 }
@@ -148,9 +118,8 @@ void write_data() {
 %type <int_u> opb opu
 %type <int_u> atomictype integer
 %type <typename_u> typename arraytype
-%type <list_u> identlist rangelist parlist vardecllist fundecllist exprlist
+%type <list_u> identlist rangelist parlist vardecllist exprlist
 %type <vardecl_u> varsdecl
-%type <fundecl_u> fundecl
 %type <lvalue_u> lvalue
 %type <par_u> par
 
@@ -172,13 +141,11 @@ void write_data() {
 %%
 
 program :
-    PROGRAM IDENT vardecllist fundecllist {
+    PROGRAM IDENT vardecllist {
         write_main($2);
         add_vardecllist_table($3);
-        add_fundecllist_table($4);
         free($2);
-        write_data();
-    } instr
+    } fundecllist {write_data(); symbol_table.cur_symbol_scope;} instr
 
 /* -------------------------------------------------------------------------- */
 /*                         variable declaration                               */
@@ -264,17 +231,14 @@ integer :
 /* -------------------------------------------------------------------------- */
 
 fundecllist : 
-      /* empty */ {$$ = list_init();}
-    | fundecl ';' fundecllist {
-        $$ = $3;
-        list_push($$, $1, sizeof(struct fundecl_t));
-        free($1);
-    }
+      /* empty */
+    | fundecl ';' fundecllist
 
 fundecl : FUNCTION IDENT '(' parlist ')' ':' atomictype vardecllist {
-    $$ = create_fundecl($2, $7, $4, $8);
-}
-/* TODO instr add later (after the bracket)*/
+    add_func_ident_table($2, $7, $4);
+    add_paramlist_table($4);
+    add_vardecllist_table($8);
+} instr
 
 parlist : 
       /* empty */ {$$ = NULL;}
@@ -320,26 +284,55 @@ instr :
     | IF expr THEN instr ELSE instr
     | WHILE expr DO instr 
     | lvalue ASSIGNMENT expr {
-        printf("TEST here : \n");
-        // TODO check that type != STRING
+        if ($3.type == STRING) {
+            handle_error("strings can't be assigned to variables", 
+                $3.const_string);
+        }
+        if (symbol_table.symbols[$1.ptr].var_func_par == PARAM_T) {
+            if ($3.type != 
+                symbol_table.symbols[$1.ptr].type.param.typename->atomic_type) {
+                handle_error("type of expr doesn't match in assigment to [%s]", 
+                    symbol_table.symbols[$1.ptr].ident);
+            }
+        }
+        else {
+            if ($3.type != 
+                symbol_table.symbols[$1.ptr].type.var.typename->atomic_type) {
+                handle_error("type of expr doesn't match in assigment to [%s]", 
+                    symbol_table.symbols[$1.ptr].ident);
+            }
+        }
         struct expr_t res;
         res.var = $1;
         res.type = $3.type;
         res.quad_op_type = QO_VAR;
         gencode (AFF_QUAD, $3, $3, res);
         }
-    | RETURN expr 
+    | RETURN expr
     | RETURN
     | IDENT '(' exprlist ')'
-    | IDENT '(' ')' 
-    | BEGIN_ sequence END 
+    | IDENT '(' ')'
+    | BEGIN_ sequence END
     | BEGIN_ END
-    | READ lvalue
-    | WRITE expr
+    | READ lvalue {
+        struct expr_t op1;
+        op1.var = $2;
+        op1.type = symbol_table.symbols[$2.ptr].type.var.typename->atomic_type;
+        op1.quad_op_type = QO_VAR;
+        gencode (READ_QUAD, op1, op1, op1);
+        }
+    | WRITE expr {gencode (WRITE_QUAD, $2, $2, $2);}
+
+// TODO split files
+// TODO verif size of list and ident list size, error if different 
+// TODO do a error test for each handle error in quad and expr, instr
+    // lvalue and exprlist
+// TODO put grammar "instruction" in function in a other file
+// TODO boolean expr
 
 sequence :
-      instr ';' sequence 
-    | instr ';' 
+      instr ';' sequence
+    | instr ';'
     | instr
 
 /* -------------------------------------------------------------------------- */
@@ -348,32 +341,54 @@ sequence :
 
 lvalue :
       IDENT {
-        $$.ptr = is_symbol_in_table($1, 0); // TODO scope for function
+        int scope = symbol_table.cur_symbol_scope;
+        if (($$.ptr = is_symbol_in_table($1, scope)) == -1) { // TODO FIX SCOPE
+            handle_error("variable [%s] is not declared in this scope", $1);
+        }
         $$.symbol_type = ATOMIC_TYPE;
-        $$.index = 0;
-        printf("atomic ptr = %i\n", $$.ptr);
+        $$.ptr_to_index = 0;
+        free($1);
     }
     | IDENT '[' exprlist ']' {
-        $$.ptr = is_symbol_in_table($1, 0); // TODO scope for function
+        int scope = symbol_table.cur_symbol_scope;
+        if (($$.ptr = is_symbol_in_table($1, scope)) == -1) { // TODO FIX SCOPE
+            handle_error("variable [%s] is not declared in this scope", $1);
+        }
+        struct symbol_t cur_symbol = symbol_table.symbols[$$.ptr];
+        if (cur_symbol.var_func_par == FUNC_T) {
+            handle_error("invalide use of [%s], [%s] is a function", $1, $1);
+        }
         $$.symbol_type = ARRAY_TYPE;
-        $$.index = 999; // TODO FUNCTION 
-        printf("array ptr = %i\n", $$.ptr);
-        // TODO verif size of list and ident list size, error if different 
+        if (cur_symbol.var_func_par == PARAM_T) {
+            $$.ptr_to_index = 
+                get_index_array (
+                    cur_symbol.type.param.typename->range_array,
+                    cur_symbol.type.param.typename->len_range_list, $3);
+        }
+        else {
+            printf("%s %i\n", $1,cur_symbol.type.var.typename->len_range_list);
+            $$.ptr_to_index =
+                get_index_array (
+                    cur_symbol.type.var.typename->range_array,
+                    cur_symbol.type.var.typename->len_range_list, $3);
+        }
+        list_free($3);
+        free($1);
     }
 
 exprlist :
       expr {
-        $$ = list_init();
         if ($1.type != INT) {
             handle_error("bool or string can't serve as element indexation"
-            "in an array, only integers allowed.");
+                "in an array, only integers allowed.");
         }
+        $$ = list_init();
         list_push($$, &$1, sizeof(struct expr_t));
     }
     | expr ',' exprlist {
         if ($1.type != INT) {
             handle_error("bool or string can't serve as element indexation"
-            "in an array, only integers allowed.");
+                "in an array, only integers allowed.");
         }
         list_push($3, &$1, sizeof(struct expr_t));
         $$ = $3;
@@ -391,16 +406,41 @@ expr :
             " : expr1 is type [%s] and expr2 is type [%s]", 
             $1.type == INT ? "int" : "bool", $3.type == INT ? "int" : "bool");
         }
-        if ($1.quad_op_type == QO_CST && $3.quad_op_type == QO_CST) {
-            $$ = compute_opb ($1, $3, $2);
+        char str_op[5];
+        if ($1.type == INT) {
+            if ($2 == OPB_PLUS || $2 == OP_MINUS ||$2 == OPB_STAR || 
+                $2 == OPB_DIVIDE || $2 == OPB_POW) {
+                $$.type = INT;
+            }
+            else if ($2 == OPB_L || $2 == OPB_L_EQ || $2 == OPB_G || 
+                $2 == OPB_G_EQ || $2 == OPB_EQ || $2 == OPB_DIFF) {
+                $$.type = BOOL;
+            }
+            else {
+                get_operator_str($2, &str_op);
+                handle_error("binary operator [%s] forbidden between int",
+                    str_op);
+            }
         }
         else {
-            // TODO check if op is possible between types (+, -, / for int ...
-            // for not const expr)
-            // TODO type of result for 1 < 3 should be bool -> fix it
+            if ($2 == OPB_EQ || $2 == OPB_DIFF || $2 == OPB_AND || 
+                $2 == OPB_AND ||$2 == OPB_OR || $2 == OPB_XOR) {
+                $$.type = BOOL;
+            }
+            else {
+                get_operator_str($2, &str_op);
+                handle_error("binary operator [%s] forbidden between bool",
+                    str_op);
+                break;
+            }
+        }
+
+        if ($1.quad_op_type == QO_CST && $3.quad_op_type == QO_CST) {
+            $$ = compute_opb_const_expr ($1, $3, $2, $$.type);
+        }
+        else {
             $$.quad_op_type = QO_TEMP;
-            $$.type = $1.type;
-            $$.temp_ptr = newtemp();
+            $$.temp_ptr = newtemp() ;
             gencode (get_instr($2, 0), $1, $3, $$);
         }
         }
@@ -408,39 +448,85 @@ expr :
         if ($2.type == STRING) {
             handle_error("No operation allowed for type string");
         }
+        if ($2.type == INT && $1 != OP_MINUS) {
+            handle_error("unary operator [not] forbidden for int");
+        }
+        else if ($2.type == BOOL && $1 != OPU_NOT) {
+            handle_error("unary operator [-] forbidden for bool");
+        }
         if ($2.quad_op_type == QO_CST) {
-            $$ = compute_opu($2, $1);
+            $$ = compute_opu_const_expr($2, $1);
         }
         else {
-            // TODO check if operation is allowed for $2 type
             $$.quad_op_type = QO_TEMP;
             $$.type = $2.type;
-            $$.temp_ptr = newtemp();
+            $$.temp_ptr = newtemp() ;
             gencode (get_instr($1, 1), $2, $2, $$);
         }
         }
-    | IDENT '(' exprlist ')'  {printf("TODO IDENT ( exprlist )\n");}
-    | IDENT '(' ')'           {printf("TODO IDENT ( )\n");}
-    | IDENT '[' exprlist ']'  {
-        printf("TODO IDENT [ exprlist ]\n");
-        if (($$.var.ptr = is_symbol_in_table($1, 0)) == -1) { // TODO FIX SCOPE
+    | IDENT '(' exprlist ')' {
+        printf("TODO IDENT (exprlist)+(free IDENT)\n");
+        }
+    | IDENT '(' ')' {
+        printf("TODO IDENT ()+(free IDENT)\n");
+        }
+    | IDENT '[' exprlist ']' {
+        int scope = symbol_table.cur_symbol_scope;
+        if (($$.var.ptr = is_symbol_in_table($1, scope)) == -1) {
             handle_error("variable [%s] is not declared in this scope", $1);
         }
-        $$.quad_op_type = QO_VAR;
-        $$.type = 
-            symbol_table.symbols[$$.var.ptr].type.var.typename->atomic_type;
-        $$.var.symbol_type = ARRAY_TYPE;
-        $$.var.index = 999; // TODO FUNCTION
+        struct symbol_t cur_symbol = symbol_table.symbols[$$.var.ptr];
+        if (cur_symbol.var_func_par == FUNC_T) {
+            handle_error("invalide use of [%s], [%s] is a function", $1, $1);
+        }
+        struct expr_t array_expr;
+        array_expr.var.ptr = $$.var.ptr;
+        array_expr.quad_op_type = QO_VAR;
+        if (cur_symbol.var_func_par == PARAM_T) {
+            printf("%i\n", cur_symbol.type.param.typename->len_range_list);
+            array_expr.type = cur_symbol.type.param.typename->atomic_type;
+            array_expr.var.symbol_type = ARRAY_TYPE;
+            array_expr.var.ptr_to_index = get_index_array (
+                cur_symbol.type.param.typename->range_array,
+                cur_symbol.type.param.typename->len_range_list,
+                $3);
+        }
+        else {
+            printf("%s %i %i\n", $1,cur_symbol.type.var.typename->len_range_list, list_len($3));
+            array_expr.type = cur_symbol.type.var.typename->atomic_type;
+            array_expr.var.symbol_type = ARRAY_TYPE;
+            array_expr.var.ptr_to_index = get_index_array (
+                cur_symbol.type.var.typename->range_array,
+                cur_symbol.type.var.typename->len_range_list,
+                $3);
+        }
+        $$.quad_op_type = QO_TEMP;
+        $$.type = array_expr.type;
+        $$.temp_ptr = newtemp() ;
+        gencode (AFF_QUAD, array_expr, array_expr, $$);
+        list_free($3);
+        free($1);
         }
     | IDENT {
-        if (($$.var.ptr = is_symbol_in_table($1, 0)) == -1) { // TODO FIX SCOPE
+        int scope = symbol_table.cur_symbol_scope;
+        if (($$.var.ptr = is_symbol_in_table($1, scope)) == -1) {
             handle_error("variable [%s] is not declared in this scope", $1);
         }
+        struct symbol_t cur_symbol = symbol_table.symbols[$$.var.ptr];
+        if (cur_symbol.var_func_par == FUNC_T) {
+            handle_error("invalide use of [%s], [%s] is a function", $1, $1);
+        }
+
         $$.quad_op_type = QO_VAR;
-        $$.type = 
-            symbol_table.symbols[$$.var.ptr].type.var.typename->atomic_type;
+        if (cur_symbol.var_func_par == PARAM_T) {
+            $$.type = cur_symbol.type.param.typename->atomic_type;
+        }
+        else {
+            $$.type = cur_symbol.type.var.typename->atomic_type;
+        }
         $$.var.symbol_type = ATOMIC_TYPE;
-        $$.var.index = 0;
+        $$.var.ptr_to_index = 0;
+        free($1);
         }
 
 opb : 
@@ -468,7 +554,8 @@ opu :
 /* -------------------------------------------------------------------------- */
 
 void yyerror(const char * msg) {
-    fprintf(stderr, "%s\n", msg);
+    fprintf(stderr, "%s at line [%i].\n", msg, current_line);
+    exit(EXIT_FAILURE);
 }
 
 noreturn void handle_error(const char * msg, ...) {
@@ -479,6 +566,7 @@ noreturn void handle_error(const char * msg, ...) {
     vfprintf(stderr, msg, ap);
     fprintf(stderr, "\n");
     va_end(ap);
+    fprintf(stderr, "Compiler stop at line [%i].\n", current_line);
 
     exit(EXIT_FAILURE);
 }
@@ -492,6 +580,7 @@ noreturn void handle_perror(const char * msg, ...) {
     fprintf(stderr, "\n");
     va_end(ap);
     perror("");
+    fprintf(stderr, "Compiler stop at line [%i].\n", current_line);
 
     exit(EXIT_FAILURE);
 }
@@ -503,148 +592,6 @@ void check_snprintf(int result, int wsize) {
 }
 
 /* -------------------------------------------------------------------------- */
-
-int get_instr(int op, int is_unary) {
-    switch (op) {
-        case OPB_PLUS:   return OPB_PLUS_QUAD;   break;
-        case OPB_STAR:   return OPB_STAR_QUAD;   break;
-        case OPB_DIVIDE: return OPB_DIVIDE_QUAD; break;
-        case OPB_POW:    return OPB_POW_QUAD;    break;
-        case OPB_L:      return OPB_LT_QUAD;     break;
-        case OPB_L_EQ:   return OPB_LT_EQ_QUAD;  break;
-        case OPB_G:      return OPB_GT_QUAD;     break;
-        case OPB_G_EQ:   return OPB_GT_EQ_QUAD;  break;
-        case OPB_EQ:     return OPB_EQ_QUAD;     break;
-        case OPB_DIFF:   return OPB_DIFF_QUAD;   break;
-        case OPB_AND:    return OPB_AND_QUAD;    break;
-        case OPB_OR:     return OPB_OR_QUAD;     break;
-        case OPB_XOR:    return OPB_XOR_QUAD;    break;
-        case OPU_NOT:    return OPU_NOT_QUAD;    break;
-        case OP_MINUS:   return is_unary ? OPU_MINUS_QUAD : OPB_MINUS_QUAD;
-        break;
-    }
-    return -1;
-}
-
-void display_cste(struct expr_t cste) {
-    switch(cste.type) {
-        case INT:
-            printf("int : %i\n", cste.const_int);         break;
-        case STRING:
-            printf("string : [%s]\n", cste.const_string); break;
-        case BOOL:
-            printf("bool : %i\n", cste.const_bool);       break;
-        default: break;
-    }
-}
-
-void get_operator_str (int op, char (*str_op)[5]) {
-    switch(op) {
-        case OPB_PLUS   : strncpy(*str_op, "+", 2);    break;
-        case OP_MINUS   : strncpy(*str_op, "-", 2);    break;
-        case OPB_STAR   : strncpy(*str_op, "*", 2);    break;
-        case OPB_DIVIDE : strncpy(*str_op, "/", 2);    break;
-        case OPB_POW    : strncpy(*str_op, "^", 2);    break;
-        case OPB_L      : strncpy(*str_op, "<", 2);    break;
-        case OPB_L_EQ   : strncpy(*str_op, "<=", 3);   break;
-        case OPB_G      : strncpy(*str_op, ">", 2);    break;
-        case OPB_G_EQ   : strncpy(*str_op, ">=", 3);   break;
-        case OPB_EQ     : strncpy(*str_op, "=", 3);    break;
-        case OPB_DIFF   : strncpy(*str_op, "<>", 3);   break;
-        case OPB_AND    : strncpy(*str_op, "and", 4);  break;
-        case OPB_OR     : strncpy(*str_op, "or", 3);   break;
-        case OPB_XOR    : strncpy(*str_op, "xor", 4);  break;
-        case OPU_NOT    : strncpy(*str_op, "not", 4);  break;
-        default         : strncpy(*str_op, "null", 5); break; 
-    }
-}
-
-struct expr_t compute_opb (struct expr_t expr1, struct expr_t expr2, int opb) {
-    struct expr_t result;
-    result.quad_op_type = QO_CST;
-    char str_op[5];
-    if (expr1.type == INT) {
-        result.type = INT;
-        switch(opb) {
-        case OPB_PLUS   :
-            result.const_int = expr1.const_int + expr2.const_int; break;
-        case OP_MINUS   :
-            result.const_int = expr1.const_int - expr2.const_int; break;
-        case OPB_STAR   :
-            result.const_int = expr1.const_int * expr2.const_int; break;
-        case OPB_DIVIDE :
-            result.const_int = expr1.const_int / expr2.const_int; break;
-        case OPB_POW    :
-            result.const_int = pow(expr1.const_int, expr2.const_int); break;
-        case OPB_L      :
-            result.type = BOOL;
-            result.const_bool = (expr1.const_int < expr2.const_int);break;
-        case OPB_L_EQ   :
-            result.type = BOOL;
-            result.const_bool = (expr1.const_int <= expr2.const_int);break;
-        case OPB_G      :
-            result.type = BOOL;
-            result.const_bool = (expr1.const_int > expr2.const_int);break;
-        case OPB_G_EQ   :
-            result.type = BOOL;
-            result.const_bool = (expr1.const_int >= expr2.const_int);break;
-        case OPB_EQ     :
-            result.type = BOOL;
-            result.const_bool = (expr1.const_int == expr2.const_int); break;
-        case OPB_DIFF   :
-            result.type = BOOL;
-            result.const_bool = (expr1.const_int != expr2.const_int); break;
-        default :
-            get_operator_str(opb, &str_op);
-            handle_error("binary operator [%s] forbidden between int", str_op);
-            break;
-        }
-    }
-    else {
-        result.type = BOOL;
-        switch(opb) {
-        case OPB_EQ     :
-            result.const_bool = (expr1.const_bool == expr2.const_bool); break;
-        case OPB_DIFF   :
-            result.const_bool = (expr1.const_bool != expr2.const_bool); break;
-        case OPB_AND    :
-            result.const_bool = (expr1.const_bool && expr2.const_bool); break;
-        case OPB_OR     :
-            result.const_bool = (expr1.const_bool || expr2.const_bool); break;
-        case OPB_XOR    :
-            result.const_bool = (expr1.const_bool ^ expr2.const_bool); break;
-        default :
-            get_operator_str(opb, &str_op);
-            handle_error("binary operator [%s] forbidden between bool", str_op);
-            break;
-        }
-    }
-    return result;
-}
-
-struct expr_t compute_opu(struct expr_t expr, int opu) {
-    struct expr_t result;
-    result.quad_op_type = QO_CST;
-    if (expr.type == INT) {
-        result.type = INT;
-        if (opu == OP_MINUS) {
-            result.const_int = - expr.const_int;
-        }
-        else {
-            handle_error("unary operator [not] forbidden for int");
-        }
-    }
-    else {
-        result.type = BOOL;
-        if (opu == OPU_NOT) {
-            result.const_bool = ! expr.const_bool;
-        }
-        else {
-            handle_error("unary operator [-] forbidden for bool");
-        }
-    }
-    return result;
-}
 
 /* -------------------------------------------------------------------------- */
 
@@ -674,7 +621,7 @@ int main (int argc, char * argv[]) {
 
     CHECK(close(args.fd));
     free_symbol_table();
-    // TODO free quad table
+    free_quad_list();
     yylex_destroy();
     return c;
 }

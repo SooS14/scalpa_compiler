@@ -1,0 +1,14 @@
+program TEST
+
+var i,j,max : int;
+var val : array[-4..4, 0..10] of int;
+function f1(t : array[-4..4, 0..10] of int, index : int) : unit
+    var local_var_1, local_var_2 : int;
+    begin
+    local_var_1 := index * 7;
+    t[index, index] := 6;
+    end;
+begin
+max := i+j;
+write "hello world";
+end

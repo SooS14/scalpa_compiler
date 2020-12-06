@@ -5,6 +5,8 @@
 #include "y.tab.h"
 #include "scalpa.h"
 
+int current_line = 1;
+
 %}
 %%
 \(\*([^*]|[\r\n]|(\*+([^*\)]|[\r\n])))*\*+\) (void)0;
@@ -97,6 +99,7 @@
     return IDENT;
 };
 
-[ \t\n]+        (void)0;
+\n              current_line ++;
+[ \t]+          (void)0;
 .               {fprintf(stderr, "unknown char [%s]\n", yytext); return 0;}
 %%

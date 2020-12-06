@@ -29,17 +29,10 @@ enum instruction_t {
     OPB_OR_QUAD,
     OPB_XOR_QUAD,
     OPU_MINUS_QUAD,
-    OPU_NOT_QUAD
-};// REMOVE AND OR XOR etc
-
-// struct quad_op_t {
-//     enum quad_op_type_t quad_op_type;
-//     union {
-//         int cst;
-//         struct lvalue_t var;
-//         int temp_ptr;
-//     } value;
-// };
+    OPU_NOT_QUAD,
+    READ_QUAD,
+    WRITE_QUAD
+};// TODO REMOVE AND OR XOR etc
 
 struct quad_t {
     // {IF op1 op2 target}
@@ -47,6 +40,7 @@ struct quad_t {
     // {AFF res _ op1}
     // {OPB op1 op2 res}
     // {OPU res _ op1}
+    // {READ/WRITE op1 _ _}
     enum instruction_t instruction;
     struct expr_t op1;
     struct expr_t op2;
@@ -88,7 +82,13 @@ struct quad_list_t* concat_quad_list(struct quad_list_t* list_1,
 
 void complete_quad_list(struct quad_list_t* liste, int target);
 
+void free_quad_op(struct expr_t quad_op);
+
+void free_quad(struct quad_t quad);
+
 void free_quad_list();
+
+int get_instr(int op, int is_unary);
 
 void gencode (int instruction, 
               struct expr_t op1, 

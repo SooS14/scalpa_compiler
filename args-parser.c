@@ -21,9 +21,9 @@ void print_usage (void) {
 void display_version (void) {
     puts(
     "\nScalpa Compiler by : \n\n"
-    "  AIT ELOURF Imane   - 2A RIO\n"
     "  BALZANO    Antoine - 2A SDIA\n"
-    "  COLIN      Simon   - 2A RIO\n");
+    "  COLIN      Simon   - 2A RIO\n"
+    "  AIT ELOURF Imane   - 2A RIO\n");
 }
 
 int test_file (char *name) {

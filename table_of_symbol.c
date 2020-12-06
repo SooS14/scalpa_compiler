@@ -143,19 +143,6 @@ void display_symbol_table() {
     }
 }
 
-struct fundecl_t * create_fundecl(char *_ident, 
-                                  int _atomictype,
-                                  struct linked_list *_parlist,
-                                  struct linked_list *_vardecllist) {
-    struct fundecl_t *x = malloc(sizeof(struct fundecl_t));
-    MCHECK(x);
-    x->ident = _ident;
-    x->atomictype = _atomictype;
-    x->parlist = _parlist;
-    x->vardecllist = _vardecllist;
-    return x;
-}
-
 struct vardecl_t * create_vardecl(struct linked_list *_identlist,
                                   struct typename_t *_typename) {
     if (_typename->atomic_type == VOID_A) {
@@ -348,18 +335,4 @@ void add_func_ident_table(char *ident,
     int index_function = symbol_table.last_ident_index;
     symbol_table.last_ident_index ++;
     symbol_table.cur_symbol_scope = index_function;
-}
-
-void add_fundecllist_table(struct linked_list *fundecllist) {
-    while (list_len(fundecllist) != 0) {
-        struct fundecl_t *fundecl = 
-            (struct fundecl_t *)list_get_first(fundecllist);
-        add_func_ident_table(fundecl->ident, 
-                             fundecl->atomictype, 
-                             fundecl->parlist);
-        add_paramlist_table(fundecl->parlist);
-        add_vardecllist_table(fundecl->vardecllist);
-        list_pop(fundecllist);
-    }
-    list_free(fundecllist);
 }

@@ -42,8 +42,9 @@ struct lvalue_t {
     int ptr;
     // symbol type : atomic_type / array_type
     enum symbol_type_t symbol_type;
-    // index of element in the array equivalent of depl in the lecture
-    int index;
+    // temp ptr to index of the element in the array 
+    // equivalent of depl in the lecture
+    int ptr_to_index;
 };
 
 struct expr_t {
@@ -76,13 +77,6 @@ struct typename_t {
 struct vardecl_t {
     struct linked_list *identlist;
     struct typename_t *typename;
-};
-
-struct fundecl_t {
-    char *ident;
-    int atomictype;
-    struct linked_list *parlist;
-    struct linked_list *vardecllist;
 };
 
 struct param_t {

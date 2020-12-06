@@ -37,19 +37,6 @@ void display_symbol_table();
 int is_symbol_in_table(char *identname, int scope);
 
 /**
- * @brief initialize a pointer of type fundecl_t * (create a malloc)
- * @param _ident
- * @param _atomictype
- * @param _parlist
- * @param _vardecllist
- * @result allocated struct fundecl_t * pointer
- */
-struct fundecl_t * create_fundecl(char *_ident, 
-                                  int _atomictype,
-                                  struct linked_list *_parlist,
-                                  struct linked_list *_vardecllist);
-
-/**
  * @brief initialize a pointer of type vardecl_t * (create a malloc)
  * @param _identlist
  * @param _typename
@@ -112,9 +99,13 @@ void add_vardecllist_table(struct linked_list *vardecllist);
 void add_paramlist_table(struct linked_list *parlist);
 
 /**
- * @brief add multiple function in the symbol table
- * @param fundecllist, list of functions to add to the table
+ * @brief add function in the symbol table
+ * @param ident, list of functions to add to the table
+ * @param atomictype, return type of the function
+ * @param parlist, parameter list
  */
-void add_fundecllist_table(struct linked_list *fundecllist);
+void add_func_ident_table(char *ident, 
+                          int atomictype, 
+                          struct linked_list *parlist);
 
 #endif
