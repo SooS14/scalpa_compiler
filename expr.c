@@ -30,6 +30,7 @@ struct expr_t compute_opb_const_expr (struct expr_t expr1,
                                       int result_type) {
     struct expr_t result;
     result.type = result_type;
+    result.is_array = 0;
     result.quad_op_type = QO_CST;
     if (expr1.type == INT) {
         switch(opb) {
@@ -79,6 +80,7 @@ struct expr_t compute_opb_const_expr (struct expr_t expr1,
 struct expr_t compute_opu_const_expr (struct expr_t expr, int opu) {
     struct expr_t result;
     result.quad_op_type = QO_CST;
+    result.is_array = 0;
     if (expr.type == INT) {
         result.type = INT;
         result.const_int = - expr.const_int;
@@ -125,12 +127,20 @@ int get_index_array (int (*range_array)[2],
         handle_error("exprlist and rangelist have different size.");
     }
     struct expr_t *expr_temp = (struct expr_t *)list_get_first(exprlist);
+    if (expr_temp->type != INT) {
+        handle_error("bool or string can't serve as element indexation"
+            "in an array, only integers allowed.");
+    }
     struct expr_t old_expr, i_expr, n_expr, res_expr, res_expr2;
     copy_expr_t(&old_expr, expr_temp);
     int temp_ptr = newtemp() ;
     list_pop(exprlist);
     for (int i = 1; i < len_range_list; i++) {
         struct expr_t *expr_temp = (struct expr_t *)list_get_first(exprlist);
+        if (expr_temp->type != INT) {
+            handle_error("bool or string can't serve as element indexation "
+                "in an array, only integers allowed.");
+        }
         copy_expr_t(&i_expr, expr_temp);
 
         n_expr.quad_op_type = QO_CST;

@@ -20,6 +20,9 @@ struct quad_table_t quad_table;
 
 int fd_out;
 
+int scope_function = 0; // used to check if the return is general
+int is_returned = 0; // used to check if a function as a return
+
 int yylex(void);
 
 int yylex_destroy(void);
@@ -157,12 +160,12 @@ vardecllist :
         $$ = list_init(); 
         list_push($$, $1, sizeof(struct vardecl_t));
         free($1);
-    }
+        }
     | varsdecl ';' vardecllist {
         $$ = $3;
         list_push($$, $1, sizeof(struct vardecl_t));
         free($1);
-    }
+        }
 
 varsdecl :
     VAR identlist ':' typename {$$ = create_vardecl($2, $4);}
@@ -172,12 +175,12 @@ identlist :
         $$ = list_init();
         list_push($$, $1, strlen($1)+1);
         free($1);
-    }
+        }
     | IDENT ',' identlist {
         list_push($3, $1, strlen($1)+1);
         $$ = $3;
         free($1);
-    }
+        }
 
 typename :
       atomictype {$$ = create_typename_atomic($1);}
@@ -202,7 +205,7 @@ rangelist :
         int x2 = $3;
         list_push($$, &x2, sizeof(int));
         list_push($$, &x1, sizeof(int));
-    }
+        }
     | integer RANGELIST_SEPARATOR integer ',' rangelist {
         if ($1 > $3) {
             handle_error("[%i..%i], invalid rangelist (%i > %i)",
@@ -213,7 +216,7 @@ rangelist :
         int x2 = $3;
         list_push($$, &x2, sizeof(int));
         list_push($$, &x1, sizeof(int));
-    }
+        }
 
 integer :
     expr {
@@ -224,7 +227,7 @@ integer :
             handle_error("elements of a rangelist for array declaration "
                 "must be integers\n");
         }
-    }
+        }
 
 /* -------------------------------------------------------------------------- */
 /*                         function declaration                               */
@@ -238,18 +241,27 @@ fundecl : FUNCTION IDENT '(' parlist ')' ':' atomictype vardecllist {
     add_func_ident_table($2, $7, $4);
     add_paramlist_table($4);
     add_vardecllist_table($8);
-} instr
+    is_returned = 0;
+} instr {
+    if (!is_returned && $7 != VOID_A) {
+        handle_error("no return in function [%s]", $2);
+    }
+    if (!is_returned) {
+        struct expr_t res;
+        gencode (RETURN_UNIT_QUAD, res, res, res);
+    }
+}
 
 parlist : 
       /* empty */ {$$ = NULL;}
     | par {
         $$ = list_init();
         list_push($$, &$1, sizeof(struct param_t));
-    }
+        }
     | par ',' parlist {
         list_push($3, &$1, sizeof(struct param_t));
         $$ = $3;
-    }
+        }
 
 par :
       IDENT ':' typename {
@@ -262,7 +274,7 @@ par :
         $$.ref = 0;
         $$.typename = $3;
         free($1);
-    }
+        }
     | REF IDENT ':' typename {
         if ($4->atomic_type == VOID_A) {
             handle_error("parameter can't be of type ref unit");
@@ -273,7 +285,7 @@ par :
         $$.ref = 1;
         $$.typename = $4;
         free($2);
-    }
+        }
 
 /* -------------------------------------------------------------------------- */
 /*                            instruction                                     */
@@ -302,17 +314,161 @@ instr :
                     symbol_table.symbols[$1.ptr].ident);
             }
         }
+        if ($3.is_array) {
+            handle_error("Can't asign an array to a lvalue");
+        }
         struct expr_t res;
+        res.is_array = 0;
         res.var = $1;
         res.type = $3.type;
         res.quad_op_type = QO_VAR;
         gencode (AFF_QUAD, $3, $3, res);
         }
-    | RETURN expr
-    | RETURN
-    | IDENT '(' exprlist ')'
-    | IDENT '(' ')'
-    | BEGIN_ sequence END
+    | RETURN expr {
+        int func_ptr = symbol_table.cur_symbol_scope;
+        if (symbol_table.symbols[func_ptr].type.func.atomic_type != 
+            $2.type) {
+            handle_error("function [%s] and return expr have different types", 
+                symbol_table.symbols[func_ptr].ident);
+        }
+        if ($2.is_array) {
+            handle_error("Can't return an array");
+        }
+        if (scope_function == 1) {
+            is_returned = 1;
+        }
+        gencode (RETURN_QUAD, $2, $2, $2);
+        }
+    | RETURN {
+        struct expr_t res;
+        int func_ptr = symbol_table.cur_symbol_scope;
+        if (symbol_table.symbols[func_ptr].type.func.atomic_type != VOID_A) {
+            handle_error("function [%s] isn't of unit type", 
+                symbol_table.symbols[func_ptr].ident);
+        }
+        if (scope_function == 1) {
+            is_returned = 1;
+        }
+        gencode (RETURN_UNIT_QUAD, res, res, res);
+        }
+    | IDENT '(' exprlist ')' {
+        int ptr = is_symbol_in_table($1, 0);
+        if (ptr == -1) {
+            handle_error("function [%s] is not declared", $1);
+        }
+        struct symbol_t cur_symbol = symbol_table.symbols[ptr];
+        if (cur_symbol.var_func_par != FUNC_T) {
+            handle_error("invalide use of [%s], [%s] isn't a function", $1, $1);
+        }
+        if (cur_symbol.type.func.atomic_type == VOID_A) {
+            handle_error("function [%s] is of unit type. Can't be called "
+                "inside an expression.", $1);
+        }
+        int nb_parameters = list_len($3);
+        if (cur_symbol.type.func.nb_param != nb_parameters) {
+            handle_error("arguments given in call of function [%s] are "
+                "different from [%s] type", $1, $1);
+        }
+        for (int i = 0; i < nb_parameters; i++) {
+            struct expr_t *expr_temp = (struct expr_t *)list_get_first($3);
+            struct param_t cur_param = 
+                symbol_table.symbols[ptr + 1 + i].type.param;
+            if (cur_param.typename->atomic_type != expr_temp->type) {
+                handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
+            }
+            if (cur_param.typename->symbol_type == ARRAY_TYPE && 
+                expr_temp->quad_op_type != QO_VAR) {
+                handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
+            }
+            if (cur_param.typename->symbol_type == ARRAY_TYPE && 
+                expr_temp->var.symbol_type != ARRAY_TYPE) {
+                handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
+            }
+            if (cur_param.typename->symbol_type == ARRAY_TYPE) {
+                struct typename_t *arraytype_2;
+                switch (symbol_table.symbols[expr_temp->var.ptr].var_func_par) {
+                case VAR_T:
+                    arraytype_2 = 
+                        symbol_table.symbols[expr_temp->var.ptr].
+                            type.var.typename;
+                    break;
+                case PARAM_T:
+                    arraytype_2 = 
+                        symbol_table.symbols[expr_temp->var.ptr].
+                            type.param.typename;
+                    break;
+                default:
+                    handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
+                    break;
+                }
+                if (cur_param.typename->len_range_list != 
+                    arraytype_2->len_range_list) {
+                    handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
+                }
+                for (int i = 0; i < arraytype_2->len_range_list; i++) {
+                    if ((arraytype_2->range_array[i][0] != 
+                        cur_param.typename->range_array[i][0]) ||
+                        (arraytype_2->range_array[i][1] != 
+                        cur_param.typename->range_array[i][1])) {
+                        handle_error("arguments given in call of function [%s]"
+                            "are different from [%s] type, for parameter [%i]", 
+                            $1, $1,i+1);
+                    }
+                }
+            }
+            gencode(PARAM_QUAD, *expr_temp, *expr_temp, *expr_temp);
+            list_pop($3);
+        }
+        struct expr_t expr_func;
+        expr_func.quad_op_type = QO_VAR;
+        expr_func.type = cur_symbol.type.func.atomic_type;
+        expr_func.var.ptr = ptr;
+        expr_func.var.symbol_type = ATOMIC_TYPE;
+        expr_func.var.ptr_to_index = 0;
+
+        struct expr_t result;
+        result.type = INT;
+        result.quad_op_type = QO_CST;
+        result.const_int = nb_parameters;
+        gencode(CALL_QUAD, expr_func, expr_func, result);
+        }
+    | IDENT '(' ')' {
+        int ptr = is_symbol_in_table($1, 0);
+        if (ptr == -1) {
+            handle_error("function [%s] is not declared", $1);
+        }
+        struct symbol_t cur_symbol = symbol_table.symbols[ptr];
+        if (cur_symbol.var_func_par != FUNC_T) {
+            handle_error("invalide use of [%s], [%s] isn't a function", $1, $1);
+        }
+        if (cur_symbol.type.func.atomic_type == VOID_A) {
+            handle_error("function [%s] is of unit type. Can't be called "
+                "inside an expression.", $1);
+        }
+        int nb_parameters = 0;
+        if (cur_symbol.type.func.nb_param != nb_parameters) {
+            handle_error("arguments given in call of function [%s] are "
+                "different from [%s] type", $1, $1);
+        }
+        struct expr_t expr_func;
+        expr_func.quad_op_type = QO_VAR;
+        expr_func.type = cur_symbol.type.func.atomic_type;
+        expr_func.var.ptr = ptr;
+        expr_func.var.symbol_type = ATOMIC_TYPE;
+        expr_func.var.ptr_to_index = 0;
+
+        struct expr_t result;
+        result.type = INT;
+        result.quad_op_type = QO_CST;
+        result.const_int = nb_parameters;
+        gencode(CALL_QUAD, expr_func, expr_func, result);
+        }
+    | BEGIN_ {scope_function++;} sequence END {scope_function--;}
     | BEGIN_ END
     | READ lvalue {
         struct expr_t op1;
@@ -321,14 +477,12 @@ instr :
         op1.quad_op_type = QO_VAR;
         gencode (READ_QUAD, op1, op1, op1);
         }
-    | WRITE expr {gencode (WRITE_QUAD, $2, $2, $2);}
-
-// TODO split files
-// TODO verif size of list and ident list size, error if different 
-// TODO do a error test for each handle error in quad and expr, instr
-    // lvalue and exprlist
-// TODO put grammar "instruction" in function in a other file
-// TODO boolean expr
+    | WRITE expr {
+        if ($2.is_array) {
+            handle_error("Can't write an array");
+        }
+        gencode (WRITE_QUAD, $2, $2, $2);
+        }
 
 sequence :
       instr ';' sequence
@@ -342,16 +496,28 @@ sequence :
 lvalue :
       IDENT {
         int scope = symbol_table.cur_symbol_scope;
-        if (($$.ptr = is_symbol_in_table($1, scope)) == -1) { // TODO FIX SCOPE
+        if (($$.ptr = is_symbol_in_table($1, scope)) == -1) {
             handle_error("variable [%s] is not declared in this scope", $1);
+        }
+        struct symbol_t cur_symbol = symbol_table.symbols[$$.ptr];
+        if (cur_symbol.var_func_par == FUNC_T) {
+            handle_error("invalide use of [%s], [%s] is a function", $1, $1);
+        }
+        if (cur_symbol.var_func_par == PARAM_T && 
+            cur_symbol.type.param.typename->symbol_type == ARRAY_TYPE) {
+            handle_error("invalide use of variable, [%s] is an array", $1);
+        }
+        else if (cur_symbol.var_func_par == VAR_T && 
+            cur_symbol.type.var.typename->symbol_type == ARRAY_TYPE) {
+            handle_error("invalide use of variable, [%s] is an array", $1);
         }
         $$.symbol_type = ATOMIC_TYPE;
         $$.ptr_to_index = 0;
         free($1);
-    }
+        }
     | IDENT '[' exprlist ']' {
         int scope = symbol_table.cur_symbol_scope;
-        if (($$.ptr = is_symbol_in_table($1, scope)) == -1) { // TODO FIX SCOPE
+        if (($$.ptr = is_symbol_in_table($1, scope)) == -1) {
             handle_error("variable [%s] is not declared in this scope", $1);
         }
         struct symbol_t cur_symbol = symbol_table.symbols[$$.ptr];
@@ -366,7 +532,6 @@ lvalue :
                     cur_symbol.type.param.typename->len_range_list, $3);
         }
         else {
-            printf("%s %i\n", $1,cur_symbol.type.var.typename->len_range_list);
             $$.ptr_to_index =
                 get_index_array (
                     cur_symbol.type.var.typename->range_array,
@@ -374,28 +539,20 @@ lvalue :
         }
         list_free($3);
         free($1);
-    }
+        }
 
 exprlist :
       expr {
-        if ($1.type != INT) {
-            handle_error("bool or string can't serve as element indexation"
-                "in an array, only integers allowed.");
-        }
         $$ = list_init();
         list_push($$, &$1, sizeof(struct expr_t));
-    }
-    | expr ',' exprlist {
-        if ($1.type != INT) {
-            handle_error("bool or string can't serve as element indexation"
-                "in an array, only integers allowed.");
         }
+    | expr ',' exprlist {
         list_push($3, &$1, sizeof(struct expr_t));
         $$ = $3;
-    }
+        }
 
 expr :
-      CTE {$$ = $1;}
+      CTE {$$ = $1; $$.is_array = 0;}
     | '(' expr ')' {$$ = $2;}
     | expr opb expr %prec OPB {
         if ($1.type == STRING || $3.type == STRING) {
@@ -405,6 +562,9 @@ expr :
             handle_error("No operation allowed between int and bool"
             " : expr1 is type [%s] and expr2 is type [%s]", 
             $1.type == INT ? "int" : "bool", $3.type == INT ? "int" : "bool");
+        }
+        if ($1.is_array || $3.is_array) {
+            handle_error("No operation allowed for arrays");
         }
         char str_op[5];
         if ($1.type == INT) {
@@ -434,11 +594,11 @@ expr :
                 break;
             }
         }
-
         if ($1.quad_op_type == QO_CST && $3.quad_op_type == QO_CST) {
             $$ = compute_opb_const_expr ($1, $3, $2, $$.type);
         }
         else {
+            $$.is_array = 0;
             $$.quad_op_type = QO_TEMP;
             $$.temp_ptr = newtemp() ;
             gencode (get_instr($2, 0), $1, $3, $$);
@@ -447,6 +607,9 @@ expr :
     | opu expr %prec OPU {
         if ($2.type == STRING) {
             handle_error("No operation allowed for type string");
+        }
+        if ($2.is_array) {
+            handle_error("No operation allowed for arrays");
         }
         if ($2.type == INT && $1 != OP_MINUS) {
             handle_error("unary operator [not] forbidden for int");
@@ -458,17 +621,139 @@ expr :
             $$ = compute_opu_const_expr($2, $1);
         }
         else {
+            $$.is_array = 0;
             $$.quad_op_type = QO_TEMP;
             $$.type = $2.type;
-            $$.temp_ptr = newtemp() ;
+            $$.temp_ptr = newtemp();
             gencode (get_instr($1, 1), $2, $2, $$);
         }
         }
     | IDENT '(' exprlist ')' {
-        printf("TODO IDENT (exprlist)+(free IDENT)\n");
+        int ptr = is_symbol_in_table($1, 0);
+        if (ptr == -1) {
+            handle_error("function [%s] is not declared", $1);
+        }
+        struct symbol_t cur_symbol = symbol_table.symbols[ptr];
+        if (cur_symbol.var_func_par != FUNC_T) {
+            handle_error("invalide use of [%s], [%s] isn't a function", $1, $1);
+        }
+        if (cur_symbol.type.func.atomic_type == VOID_A) {
+            handle_error("function [%s] is of unit type. Can't be called "
+                "inside an expression.", $1);
+        }
+        int nb_parameters = list_len($3);
+        if (cur_symbol.type.func.nb_param != nb_parameters) {
+            handle_error("arguments given in call of function [%s] are "
+                "different from [%s] type", $1, $1);
+        }
+        for (int i = 0; i < nb_parameters; i++) {
+            struct expr_t *expr_temp = (struct expr_t *)list_get_first($3);
+            struct param_t cur_param = 
+                symbol_table.symbols[ptr + 1 + i].type.param;
+            if (cur_param.typename->atomic_type != expr_temp->type) {
+                handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
+            }
+            if (cur_param.typename->symbol_type == ARRAY_TYPE && 
+                expr_temp->quad_op_type != QO_VAR) {
+                handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
+            }
+            if (cur_param.typename->symbol_type == ARRAY_TYPE && 
+                expr_temp->var.symbol_type != ARRAY_TYPE) {
+                handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
+            }
+            if (cur_param.typename->symbol_type == ARRAY_TYPE) {
+                struct typename_t *arraytype_2;
+                switch (symbol_table.symbols[expr_temp->var.ptr].var_func_par) {
+                case VAR_T:
+                    arraytype_2 = 
+                        symbol_table.symbols[expr_temp->var.ptr].
+                            type.var.typename;
+                    break;
+                case PARAM_T:
+                    arraytype_2 = 
+                        symbol_table.symbols[expr_temp->var.ptr].
+                            type.param.typename;
+                    break;
+                default:
+                    handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
+                    break;
+                }
+                if (cur_param.typename->len_range_list != 
+                    arraytype_2->len_range_list) {
+                    handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
+                }
+                for (int i = 0; i < arraytype_2->len_range_list; i++) {
+                    if ((arraytype_2->range_array[i][0] != 
+                        cur_param.typename->range_array[i][0]) ||
+                        (arraytype_2->range_array[i][1] != 
+                        cur_param.typename->range_array[i][1])) {
+                        handle_error("arguments given in call of function [%s]"
+                            "are different from [%s] type, for parameter [%i]", 
+                            $1, $1,i+1);
+                    }
+                }
+            }
+            gencode(PARAM_QUAD, *expr_temp, *expr_temp, *expr_temp);
+            list_pop($3);
+        }
+        $$.is_array = 0;
+        $$.quad_op_type = QO_TEMP;
+        $$.type = cur_symbol.type.func.atomic_type;
+        $$.temp_ptr = newtemp();
+
+        struct expr_t expr_func;
+        expr_func.quad_op_type = QO_VAR;
+        expr_func.type = cur_symbol.type.func.atomic_type;
+        expr_func.var.ptr = ptr;
+        expr_func.var.symbol_type = ATOMIC_TYPE;
+        expr_func.var.ptr_to_index = 0;
+
+        struct expr_t result;
+        result.type = INT;
+        result.quad_op_type = QO_CST;
+        result.const_int = nb_parameters;
+        gencode(CALL_AFF_QUAD, $$, expr_func, result);
         }
     | IDENT '(' ')' {
-        printf("TODO IDENT ()+(free IDENT)\n");
+        int ptr = is_symbol_in_table($1, 0);
+        if (ptr == -1) {
+            handle_error("function [%s] is not declared", $1);
+        }
+        struct symbol_t cur_symbol = symbol_table.symbols[ptr];
+        if (cur_symbol.var_func_par != FUNC_T) {
+            handle_error("invalide use of [%s], [%s] isn't a function", $1, $1);
+        }
+        if (cur_symbol.type.func.atomic_type == VOID_A) {
+            handle_error("function [%s] is of unit type. Can't be called "
+                "inside an expression.", $1);
+        }
+        int nb_parameters = 0;
+        if (cur_symbol.type.func.nb_param != nb_parameters) {
+            handle_error("arguments given in call of function [%s] are "
+                "different from [%s] type", $1, $1);
+        }
+        $$.is_array = 0;
+        $$.quad_op_type = QO_TEMP;
+        $$.type = cur_symbol.type.func.atomic_type;
+        $$.temp_ptr = newtemp();
+
+        struct expr_t expr_func;
+        expr_func.quad_op_type = QO_VAR;
+        expr_func.type = $$.type;
+        expr_func.var.ptr = ptr;
+        expr_func.var.symbol_type = ATOMIC_TYPE;
+        expr_func.var.ptr_to_index = 0;
+
+        struct expr_t result;
+        result.type = INT;
+        result.quad_op_type = QO_CST;
+        result.const_int = nb_parameters;
+        gencode(CALL_AFF_QUAD, $$, expr_func, result);
         }
     | IDENT '[' exprlist ']' {
         int scope = symbol_table.cur_symbol_scope;
@@ -483,7 +768,6 @@ expr :
         array_expr.var.ptr = $$.var.ptr;
         array_expr.quad_op_type = QO_VAR;
         if (cur_symbol.var_func_par == PARAM_T) {
-            printf("%i\n", cur_symbol.type.param.typename->len_range_list);
             array_expr.type = cur_symbol.type.param.typename->atomic_type;
             array_expr.var.symbol_type = ARRAY_TYPE;
             array_expr.var.ptr_to_index = get_index_array (
@@ -492,7 +776,6 @@ expr :
                 $3);
         }
         else {
-            printf("%s %i %i\n", $1,cur_symbol.type.var.typename->len_range_list, list_len($3));
             array_expr.type = cur_symbol.type.var.typename->atomic_type;
             array_expr.var.symbol_type = ARRAY_TYPE;
             array_expr.var.ptr_to_index = get_index_array (
@@ -500,9 +783,10 @@ expr :
                 cur_symbol.type.var.typename->len_range_list,
                 $3);
         }
+        $$.is_array = 0;
         $$.quad_op_type = QO_TEMP;
         $$.type = array_expr.type;
-        $$.temp_ptr = newtemp() ;
+        $$.temp_ptr = newtemp();
         gencode (AFF_QUAD, array_expr, array_expr, $$);
         list_free($3);
         free($1);
@@ -516,15 +800,26 @@ expr :
         if (cur_symbol.var_func_par == FUNC_T) {
             handle_error("invalide use of [%s], [%s] is a function", $1, $1);
         }
-
+        if (cur_symbol.var_func_par == PARAM_T && 
+            cur_symbol.type.param.typename->symbol_type == ARRAY_TYPE) {
+            $$.is_array = 1;
+        }
+        else if (cur_symbol.var_func_par == VAR_T && 
+            cur_symbol.type.var.typename->symbol_type == ARRAY_TYPE) {
+            $$.is_array = 1;
+        }
+        else {
+            $$.is_array = 0;
+        }
         $$.quad_op_type = QO_VAR;
         if (cur_symbol.var_func_par == PARAM_T) {
             $$.type = cur_symbol.type.param.typename->atomic_type;
+            $$.var.symbol_type = cur_symbol.type.param.typename->symbol_type;
         }
         else {
             $$.type = cur_symbol.type.var.typename->atomic_type;
+            $$.var.symbol_type = cur_symbol.type.var.typename->symbol_type;
         }
-        $$.var.symbol_type = ATOMIC_TYPE;
         $$.var.ptr_to_index = 0;
         free($1);
         }
@@ -593,8 +888,6 @@ void check_snprintf(int result, int wsize) {
 
 /* -------------------------------------------------------------------------- */
 
-/* -------------------------------------------------------------------------- */
-
 int main (int argc, char * argv[]) {
     args_t args;
     parse_args(argc, argv, &args);
@@ -626,16 +919,19 @@ int main (int argc, char * argv[]) {
     return c;
 }
 
-/* TODO
+/* TODO LIST
 
 IMPORTANT
 
-NOT PRIORITY (obsolete -> i'll do an update later of the new todos)
- - table of symbol add pointer (hash table ?)
- - improve display tos function \r in display improve, print scope ?
- - expr const or not if identifier for integer in arraytype
- - const for array size in grammar
- - new test for cste and expr
+ - TODO boolean expr
+ - TODO while if if else
+ - TODO split files
+ - TODO put grammar "instruction" in function in a other file
+ - TODO do a error test for each handle_error
+
+OPTIONAL
+
+ - TODO ref param
 
 Q : warning: 1 shift/reduce conflict [-Wconflicts-sr] fix ?
 Q : rename linked_list by linked_list_t ?
@@ -646,6 +942,7 @@ Q : cste string regular expression bug for  "//" valid, "/" not valid,
     add single quote example " '"' " is a valid syntaxe
 Q : getopt.h for args ?
 Q : test if output file is part of the source code ?
+Q : hash table ?
 
 verif :
  - yacc warning

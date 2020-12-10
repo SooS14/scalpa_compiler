@@ -105,6 +105,35 @@ void display_quad(struct quad_t quad) {
         display_quad_op(quad.op1);
         printf("]\n");
     }
+    else if (quad.instruction == PARAM_QUAD) {
+        printf("[ param");
+        display_quad_op(quad.op1);
+        printf("]\n");
+    }
+    else if (quad.instruction == CALL_AFF_QUAD) {
+        printf("[");
+        display_quad_op(quad.op1);
+        printf(":= call");
+        display_quad_op(quad.op2);
+        printf(",");
+        display_quad_op(quad.res);
+        printf("]\n");
+    }
+    else if (quad.instruction == CALL_QUAD) {
+        printf("[ call");
+        display_quad_op(quad.op1);
+        printf(",");
+        display_quad_op(quad.res);
+        printf("]\n");
+    }
+    else if (quad.instruction == RETURN_QUAD) {
+        printf("[ return");
+        display_quad_op(quad.res);
+        printf("]\n");
+    }
+    else if (quad.instruction == RETURN_UNIT_QUAD) {
+        printf("[ return ]\n");
+    }
     else{
         printf("[");
         display_quad_op(quad.res);
@@ -119,6 +148,7 @@ void display_quad(struct quad_t quad) {
 void display_quad_table() {
     printf("\nTABLE OF QUADS : (number of  quad = %i)\n", quad_table.nextquad);
     for (int i = 0; i < quad_table.nextquad; i++) {
+        printf("%i : ", i);
         display_quad(quad_table.quads[i]);
     }
 }

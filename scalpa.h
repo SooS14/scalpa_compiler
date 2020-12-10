@@ -59,6 +59,8 @@ struct expr_t {
         struct lvalue_t var;
         int temp_ptr;
     };
+    // 1 if lvalue is a array, else 0
+    int is_array;
 };
 
 struct typename_t {
@@ -86,6 +88,7 @@ struct param_t {
 };
 
 struct function_t {
+    int index_quad;
     int nb_param; // number of paramater for a function
     int *index_param; // array of index of parameter of a function
     enum atomic_type_t atomic_type; // atomic type : int / bool / unit

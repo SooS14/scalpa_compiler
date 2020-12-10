@@ -3,10 +3,12 @@
 #include <string.h>
 #include <math.h>
 #include "scalpa.h"
+#include "quad.h"
 #include "linked_list.h"
 #include "table_of_symbol.h"
 
 extern struct symbol_table_t symbol_table;
+extern struct quad_table_t quad_table;
 
 void init_symbol_table() {
     symbol_table.table_size = INIT_TABLE_SIZE;
@@ -91,6 +93,7 @@ void display_symbol(struct symbol_t *symbol, int index, int n) {
             printf("%i,", symbol->type.func.index_param[j]);
         }
         printf("] )");
+        printf(" quad = %i", symbol->type.func.index_quad);
         break;
 
     case PARAM_T:
@@ -319,6 +322,7 @@ void add_func_ident_table(char *ident,
     free(ident);
     new_symbol->scope = 0;
     new_symbol->type.func.atomic_type = atomictype;
+    new_symbol->type.func.index_quad = quad_table.nextquad;
     new_symbol->type.func.nb_param = list_len(parlist);
     if (list_len(parlist) != 0) {
         new_symbol->type.func.index_param = 

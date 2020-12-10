@@ -31,7 +31,12 @@ enum instruction_t {
     OPU_MINUS_QUAD,
     OPU_NOT_QUAD,
     READ_QUAD,
-    WRITE_QUAD
+    WRITE_QUAD,
+    CALL_QUAD,
+    CALL_AFF_QUAD,
+    PARAM_QUAD,
+    RETURN_UNIT_QUAD,
+    RETURN_QUAD
 };// TODO REMOVE AND OR XOR etc
 
 struct quad_t {
@@ -41,6 +46,11 @@ struct quad_t {
     // {OPB op1 op2 res}
     // {OPU res _ op1}
     // {READ/WRITE op1 _ _}
+    // {PARAM op1 _ _}
+    // {CALL_AFF op1 op2 res} // op1 := call op2, res (target = const nb of par)
+    // {CALL op1 _ res} // call op1, res (res = const nb of par)
+    // {return_unit _ _ _}
+    // {return _ _ res}
     enum instruction_t instruction;
     struct expr_t op1;
     struct expr_t op2;
@@ -79,6 +89,8 @@ struct quad_list_t* create_quad_list(int position);
 
 struct quad_list_t* concat_quad_list(struct quad_list_t* list_1, 
                                      struct quad_list_t* list_2);
+
+// TODO free quad list
 
 void complete_quad_list(struct quad_list_t* liste, int target);
 
