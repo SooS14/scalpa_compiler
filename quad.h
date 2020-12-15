@@ -6,8 +6,9 @@
 #define GOTO_INCOMPLETE -1
 
 enum instruction_t {
-    GOTO_QUAD, 
-    AFF_QUAD, 
+    GOTO_QUAD,
+    AFF_QUAD,
+    IF_QUAD,
     IF_LT_QUAD, 
     IF_GT_QUAD,
     IF_LT_EQ_QUAD, 
@@ -25,9 +26,6 @@ enum instruction_t {
     OPB_GT_EQ_QUAD,
     OPB_EQ_QUAD,
     OPB_DIFF_QUAD,
-    OPB_AND_QUAD,
-    OPB_OR_QUAD,
-    OPB_XOR_QUAD,
     OPU_MINUS_QUAD,
     OPU_NOT_QUAD,
     READ_QUAD,
@@ -37,10 +35,11 @@ enum instruction_t {
     PARAM_QUAD,
     RETURN_UNIT_QUAD,
     RETURN_QUAD
-};// TODO REMOVE AND OR XOR etc
+};
 
 struct quad_t {
-    // {IF op1 op2 target}
+    // {IF op1 _ target}
+    // {IF_REL op1 op2 target}
     // {GOTO _ _ target}
     // {AFF res _ op1}
     // {OPB op1 op2 res}
@@ -84,21 +83,20 @@ struct quad_list_t {
     struct quad_list_t* next;
 };
 
-//TODO maybe use linked list ?
 struct quad_list_t* create_quad_list(int position);
 
 struct quad_list_t* concat_quad_list(struct quad_list_t* list_1, 
                                      struct quad_list_t* list_2);
 
-// TODO free quad list
-
 void complete_quad_list(struct quad_list_t* liste, int target);
+
+void free_quad_list(struct quad_list_t* quad_list);
 
 void free_quad_op(struct expr_t quad_op);
 
 void free_quad(struct quad_t quad);
 
-void free_quad_list();
+void free_quad_table();
 
 int get_instr(int op, int is_unary);
 
@@ -107,6 +105,13 @@ void gencode (int instruction,
               struct expr_t op2,
               struct expr_t res);
 
-int newtemp();
+void gencode_goto (int target);
+
+/**
+ * @brief return a new temp ptr for quad generation
+ * @param mode 0 normal behaviour (return a ptr), 1 reset the counter
+ * @result new temp ptr
+ */
+int newtemp(int mode);
 
 #endif

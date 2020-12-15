@@ -16,6 +16,7 @@ void init_symbol_table() {
     symbol_table.symbols = malloc(INIT_TABLE_SIZE * sizeof(struct symbol_t));
     MCHECK(symbol_table.symbols);
     symbol_table.cur_symbol_scope = 0;
+    symbol_table.quad_main = 0;
 }
 
 void free_symbol_table() {
@@ -47,7 +48,6 @@ void free_symbol_table() {
             }
             free(symbol_table.symbols[i].type.param.typename);
             break;
-        default : break;// ERROR exit (impossible)
         }
     }
     free(symbol_table.symbols);
@@ -316,10 +316,7 @@ void add_func_ident_table(char *ident,
     
     new_symbol->var_func_par = FUNC_T;
     new_symbol->ident_length = strlen(ident) + 1;
-    new_symbol->ident = malloc(new_symbol->ident_length);
-    MCHECK(new_symbol->ident);
-    strncpy(new_symbol->ident, ident, new_symbol->ident_length);
-    free(ident);
+    new_symbol->ident = ident;
     new_symbol->scope = 0;
     new_symbol->type.func.atomic_type = atomictype;
     new_symbol->type.func.index_quad = quad_table.nextquad;

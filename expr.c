@@ -1,5 +1,6 @@
 #include "expr.h"
 #include "y.tab.h"
+#include <stdio.h>
 
 extern struct symbol_table_t symbol_table;
 
@@ -133,7 +134,7 @@ int get_index_array (int (*range_array)[2],
     }
     struct expr_t old_expr, i_expr, n_expr, res_expr, res_expr2;
     copy_expr_t(&old_expr, expr_temp);
-    int temp_ptr = newtemp() ;
+    int temp_ptr = newtemp(0);
     list_pop(exprlist);
     for (int i = 1; i < len_range_list; i++) {
         struct expr_t *expr_temp = (struct expr_t *)list_get_first(exprlist);
@@ -167,6 +168,6 @@ int get_index_array (int (*range_array)[2],
         res_expr.temp_ptr = temp_ptr;
         gencode (AFF_QUAD, old_expr, old_expr, res_expr);
     }
-    // mult by nbw ?
+    // TODO mult by nbw ?
     return temp_ptr;
 }

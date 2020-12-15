@@ -61,6 +61,8 @@ struct expr_t {
     };
     // 1 if lvalue is a array, else 0
     int is_array;
+    struct quad_list_t *true;
+    struct quad_list_t *false;
 };
 
 struct typename_t {
@@ -130,6 +132,7 @@ struct symbol_table_t {
     // each time a new function is declared, cur_symbol_scope take the value of 
     // the index of the function
     int cur_symbol_scope;
+    int quad_main;
 };
 
 /**
