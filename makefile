@@ -2,8 +2,14 @@ CFLAGS=-lm -lfl
 TARGET=scalpa
 YACCFLAGS=-d -g -v -Wno-yacc
 
-all: y.tab.o lex.yy.o linked_list.o table_of_symbol.o args-parser.o
-	gcc y.tab.o lex.yy.o linked_list.o table_of_symbol.o args-parser.o $(CFLAGS) -o $(TARGET)
+all: y.tab.o lex.yy.o linked_list.o table_of_symbol.o args-parser.o quad.o expr.o
+	gcc y.tab.o lex.yy.o linked_list.o table_of_symbol.o args-parser.o quad.o expr.o $(CFLAGS) -o $(TARGET)
+
+expr.o: expr.c expr.h
+	gcc -c expr.c -o expr.o -lm
+
+quad.o: quad.c quad.h
+	gcc -c quad.c -o quad.o
 
 table_of_symbol.o: table_of_symbol.c table_of_symbol.h
 	gcc -c table_of_symbol.c -o table_of_symbol.o

@@ -15,10 +15,13 @@
 
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-enum type_t {INT, STRING, BOOL};
-enum atomic_type_t {INT_A, BOOL_A, VOID_A};
+#define INIT_TABLE_SIZE 1024
+
+enum type_t {INT, BOOL, STRING}; // order is important
+enum atomic_type_t {INT_A, BOOL_A, VOID_A}; // order is important
 enum symbol_type_t {ATOMIC_TYPE, ARRAY_TYPE, FUNCTION_TYPE, PARAMETER_TYPE};
 enum var_func_par_t {VAR_T, FUNC_T, PARAM_T}; // find an other name later
+enum quad_op_type_t {QO_CST, QO_VAR, QO_TEMP};
 
 /**
  * @brief Print an error message in stderr and exit program with EXIT_FAILURE
@@ -34,16 +37,32 @@ noreturn void handle_error(const char * msg, ...);
  */
 noreturn void handle_perror(const char * msg, ...);
 
-struct cste_value_t {
+struct lvalue_t {
+    //index of variable in symbol table
+    int ptr;
+    // symbol type : atomic_type / array_type
+    enum symbol_type_t symbol_type;
+    // temp ptr to index of the element in the array 
+    // equivalent of depl in the lecture
+    int ptr_to_index;
+};
+
+struct expr_t {
+    enum quad_op_type_t quad_op_type; // cst var or temp
     enum type_t type;
     union {
-        // int constant
-        int iconst;
-        // string constant
-        char *sconst;
-        // bool constant
-        int bconst;
-    } val;
+        union {
+            int const_int;
+            char *const_string;
+            int const_bool;
+        };
+        struct lvalue_t var;
+        int temp_ptr;
+    };
+    // 1 if lvalue is a array, else 0
+    int is_array;
+    struct quad_list_t *true;
+    struct quad_list_t *false;
 };
 
 struct typename_t {
@@ -64,13 +83,6 @@ struct vardecl_t {
     struct typename_t *typename;
 };
 
-struct fundecl_t {
-    char *ident;
-    int atomictype;
-    struct linked_list *parlist;
-    struct linked_list *vardecllist;
-};
-
 struct param_t {
     char *ident; // used for parlist
     struct typename_t *typename;
@@ -78,6 +90,7 @@ struct param_t {
 };
 
 struct function_t {
+    int index_quad;
     int nb_param; // number of paramater for a function
     int *index_param; // array of index of parameter of a function
     enum atomic_type_t atomic_type; // atomic type : int / bool / unit
@@ -94,7 +107,7 @@ struct symbol_t {
     //length of the identifier name
     int ident_length;
     // 0 if declared, 1 if a value as been affected
-    enum var_func_par_t var_func_par;
+    enum var_func_par_t var_func_par; // TODO remane 
     union {
         struct param_t param;
         struct function_t func;
@@ -119,6 +132,7 @@ struct symbol_table_t {
     // each time a new function is declared, cur_symbol_scope take the value of 
     // the index of the function
     int cur_symbol_scope;
+    int quad_main;
 };
 
 /**

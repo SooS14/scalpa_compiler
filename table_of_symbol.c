@@ -3,10 +3,12 @@
 #include <string.h>
 #include <math.h>
 #include "scalpa.h"
+#include "quad.h"
 #include "linked_list.h"
 #include "table_of_symbol.h"
 
 extern struct symbol_table_t symbol_table;
+extern struct quad_table_t quad_table;
 
 void init_symbol_table() {
     symbol_table.table_size = INIT_TABLE_SIZE;
@@ -14,6 +16,7 @@ void init_symbol_table() {
     symbol_table.symbols = malloc(INIT_TABLE_SIZE * sizeof(struct symbol_t));
     MCHECK(symbol_table.symbols);
     symbol_table.cur_symbol_scope = 0;
+    symbol_table.quad_main = 0;
 }
 
 void free_symbol_table() {
@@ -45,7 +48,6 @@ void free_symbol_table() {
             }
             free(symbol_table.symbols[i].type.param.typename);
             break;
-        default : break;// ERROR exit (impossible)
         }
     }
     free(symbol_table.symbols);
@@ -91,6 +93,7 @@ void display_symbol(struct symbol_t *symbol, int index, int n) {
             printf("%i,", symbol->type.func.index_param[j]);
         }
         printf("] )");
+        printf(" quad = %i", symbol->type.func.index_quad);
         break;
 
     case PARAM_T:
@@ -143,19 +146,6 @@ void display_symbol_table() {
     }
 }
 
-struct fundecl_t * create_fundecl(char *_ident, 
-                                  int _atomictype,
-                                  struct linked_list *_parlist,
-                                  struct linked_list *_vardecllist) {
-    struct fundecl_t *x = malloc(sizeof(struct fundecl_t));
-    MCHECK(x);
-    x->ident = _ident;
-    x->atomictype = _atomictype;
-    x->parlist = _parlist;
-    x->vardecllist = _vardecllist;
-    return x;
-}
-
 struct vardecl_t * create_vardecl(struct linked_list *_identlist,
                                   struct typename_t *_typename) {
     if (_typename->atomic_type == VOID_A) {
@@ -195,10 +185,10 @@ int is_symbol_in_table(char *identname, int scope) {
             symbol_table.symbols[i].var_func_par == VAR_T)) &&
             size == symbol_table.symbols[i].ident_length &&
             !strncmp(identname, symbol_table.symbols[i].ident, size)) {
-                return 1;
+                return i;
         }
     }
-    return 0;
+    return -1;
 }
 
 void realloc_table () {
@@ -243,7 +233,8 @@ void add_vardecl_table (struct linked_list *identlist,
                         struct typename_t *_typename) {
     while (list_len(identlist) != 0) {
         char *new_ident_name = (char *)list_get_first(identlist);
-        if (is_symbol_in_table(new_ident_name, symbol_table.cur_symbol_scope)) {
+        if (is_symbol_in_table(new_ident_name, symbol_table.cur_symbol_scope) 
+            != -1) {
             handle_error("identifier [%s] already declared.", new_ident_name);
         }
         realloc_table();
@@ -282,7 +273,8 @@ void add_vardecllist_table(struct linked_list *vardecllist) {
 void add_paramlist_table(struct linked_list *parlist) {
     while (list_len(parlist) != 0) {
         struct param_t *param = (struct param_t *)list_get_first(parlist);
-        if (is_symbol_in_table(param->ident, symbol_table.cur_symbol_scope)) {
+        if (is_symbol_in_table(param->ident, symbol_table.cur_symbol_scope)
+            != -1) {
             handle_error("identifier [%s] already declared.", param->ident);
         }
         realloc_table();
@@ -315,7 +307,7 @@ void add_paramlist_table(struct linked_list *parlist) {
 void add_func_ident_table(char *ident, 
                           int atomictype, 
                           struct linked_list *parlist) {
-    if (is_symbol_in_table(ident, 0)) {
+    if (is_symbol_in_table(ident, 0) != -1) {
         handle_error("identifier [%s] already declared.", ident);
     }
     realloc_table();
@@ -324,12 +316,10 @@ void add_func_ident_table(char *ident,
     
     new_symbol->var_func_par = FUNC_T;
     new_symbol->ident_length = strlen(ident) + 1;
-    new_symbol->ident = malloc(new_symbol->ident_length);
-    MCHECK(new_symbol->ident);
-    strncpy(new_symbol->ident, ident, new_symbol->ident_length);
-    free(ident);
+    new_symbol->ident = ident;
     new_symbol->scope = 0;
     new_symbol->type.func.atomic_type = atomictype;
+    new_symbol->type.func.index_quad = quad_table.nextquad;
     new_symbol->type.func.nb_param = list_len(parlist);
     if (list_len(parlist) != 0) {
         new_symbol->type.func.index_param = 
@@ -346,18 +336,4 @@ void add_func_ident_table(char *ident,
     int index_function = symbol_table.last_ident_index;
     symbol_table.last_ident_index ++;
     symbol_table.cur_symbol_scope = index_function;
-}
-
-void add_fundecllist_table(struct linked_list *fundecllist) {
-    while (list_len(fundecllist) != 0) {
-        struct fundecl_t *fundecl = 
-            (struct fundecl_t *)list_get_first(fundecllist);
-        add_func_ident_table(fundecl->ident, 
-                             fundecl->atomictype, 
-                             fundecl->parlist);
-        add_paramlist_table(fundecl->parlist);
-        add_vardecllist_table(fundecl->vardecllist);
-        list_pop(fundecllist);
-    }
-    list_free(fundecllist);
 }

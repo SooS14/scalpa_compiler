@@ -1,0 +1,30 @@
+(* Ceci est un exemple de code SCALPA *)
+program maxi
+var i,j,max : int;
+var val : array[-4..4, 0..10, 4..15] of int;
+var tab : array[1..10, 1..20] of int;
+var s : array[1..2] of int;
+var x,y,z : int;
+var a,b,c : bool;
+begin
+i := 2;
+j := 3;
+max := (i - (j+1)*4/j)+ (5*(4+3));
+val[i,j+7,9] := 3-max;
+max := val[2+i,3+j,2] + 12;
+val[4,10,15] := 1;
+tab[y,z] := 5;
+tab[y,z] := tab[y,z];
+s[0] := 90+i*(x/j);
+x := s[i+3];
+x := s[i+3] + 1;
+read x;
+write x+6;
+read tab[y,z+4];
+write "hello world";
+write s[3];
+a := true;
+b := false or true and true;
+c := a and b and (3 <> 3) xor ( s[2] < 9);
+end
+

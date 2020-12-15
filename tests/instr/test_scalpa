@@ -2,27 +2,30 @@
 program maxi
     var i,j,max : int;
     var val : array[-4..4, 0..10] of int
+    
     function fini() : unit
     begin
-        write "programme terminé"
+        write "programme termine"
     end;
+    
     function maxtab(t : array[-4..4, 0..10] of int) : int
-        var i,j,maximum : int
+        var i2,j2,maximum : int
         begin
-        i := -4;
-        j := 0;
+        i2 := -4;
+        j2 := 0;
         maximum := t[-4,0];
         while i <= 4 do
         begin
             while j <= 10 do
             begin
-                if t[i,j] > maximum then maximum := t[i,j];
-                j := j+1
+                if t[i2,j2] > maximum then maximum := t[i2,j2];
+                j2 := j2+1
             end;
-            i := i+1;
+            i2 := i2+1;
         end;
         return maximum
     end;
+
 begin
     i := -4;
     j := 0;
@@ -37,5 +40,5 @@ begin
     end;
     max := maxtab(val);
     write max;
-    fini()
+    fini();
 end

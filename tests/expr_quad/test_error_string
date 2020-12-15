@@ -1,0 +1,8 @@
+(* Ceci est un exemple de code SCALPA *)
+program maxi
+var i,j,max : int;
+begin
+i := 2;
+j := 3;
+max := i + "string";
+end
