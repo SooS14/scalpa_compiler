@@ -1,0 +1,8 @@
+program TEST
+
+	var tab : array[-4..4, 3..0, -3..3] of int;
+
+begin
+end
+
+

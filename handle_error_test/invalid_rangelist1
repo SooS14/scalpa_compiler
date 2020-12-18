@@ -1,0 +1,6 @@
+program invalid_rnglst
+
+	var tab1 : array[4..-4] of int;
+
+begin
+end

@@ -1,0 +1,11 @@
+program TEST
+    
+    var a1 : int;
+    a1 := "soos";
+
+begin
+	a1 := 1;
+	b2 := 2;
+	c1 := adition(a1,b2);
+	write c1;
+end
