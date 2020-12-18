@@ -34,11 +34,16 @@ begin
     a := not true;
     max := max_array(val);
     i := val[i,j];
-    i := (simple_array[8]*6)+val[i,j];
+    i := simple_array[8]*6;
+    j := val[i,j];
     write "hello world";
     a := f_1();
     while true and f_1() or bool_array[9] do 
-        begin end
+        begin end;
+    begin
+        val[i,j] := i;
+        read i;
+    end;
     (*else
         begin end*)
 end

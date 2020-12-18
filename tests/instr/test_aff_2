@@ -1,0 +1,12 @@
+(* test des affectation *)
+program maxi
+    var g1,g2,g3,g4 : int;
+
+begin
+    g1 := 1;
+    g1 := g1;
+    g2 := 2;
+    g3 := 4 + 5;
+    g4 := g1 + g2 + g3;
+end
+

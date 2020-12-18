@@ -58,7 +58,11 @@ void display_quad_op(struct expr_t quad_op) {
             printf(" ");
             break;
         case QO_TEMP :
-            printf(" %%T%i ", quad_op.temp_ptr);
+            printf(" %%T%i ", quad_op.temp.ptr);
+            if (quad_op.temp.symbol_type == ARRAY_TYPE && !quad_op.is_array) {
+                printf("[%%T%i]", quad_op.temp.ptr_to_index);
+            }
+            printf(" ");
             break;
     }
 }

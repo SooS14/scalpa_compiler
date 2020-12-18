@@ -115,8 +115,10 @@ void copy_expr_t (struct expr_t *dest, struct expr_t *origin) {
         dest->var.symbol_type = origin->var.symbol_type;
         dest->var.ptr_to_index = origin->var.ptr_to_index;
         break;
-    case QO_TEMP : 
-        dest->temp_ptr = origin->temp_ptr; 
+    case QO_TEMP :
+        dest->temp.ptr = origin->temp.ptr;
+        dest->temp.symbol_type = origin->temp.symbol_type;
+        dest->temp.ptr_to_index = origin->temp.ptr_to_index;
         break;
     }
 }
@@ -150,11 +152,15 @@ int get_index_array (int (*range_array)[2],
 
         res_expr.quad_op_type = QO_TEMP;
         res_expr.type = INT;
-        res_expr.temp_ptr = temp_ptr;
+        res_expr.temp.ptr = temp_ptr;
+        res_expr.temp.symbol_type = ATOMIC_TYPE;
+        res_expr.temp.ptr_to_index = 0;
 
         res_expr2.quad_op_type = QO_TEMP;
         res_expr2.type = INT;
-        res_expr2.temp_ptr = temp_ptr;
+        res_expr2.temp.ptr = temp_ptr;
+        res_expr2.temp.symbol_type = ATOMIC_TYPE;
+        res_expr2.temp.ptr_to_index = 0;
 
         gencode (OPB_STAR_QUAD, n_expr, old_expr, res_expr);
         gencode (OPB_PLUS_QUAD, res_expr, i_expr, res_expr2);
@@ -165,7 +171,9 @@ int get_index_array (int (*range_array)[2],
     if (len_range_list == 1) {
         res_expr.quad_op_type = QO_TEMP;
         res_expr.type = INT;
-        res_expr.temp_ptr = temp_ptr;
+        res_expr.temp.ptr = temp_ptr;
+        res_expr.temp.symbol_type = ATOMIC_TYPE;
+        res_expr.temp.ptr_to_index = 0;
         gencode (AFF_QUAD, old_expr, old_expr, res_expr);
     }
     // TODO mult by nbw ?

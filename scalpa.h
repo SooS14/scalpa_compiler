@@ -57,10 +57,13 @@ struct expr_t {
             int const_bool;
         };
         struct lvalue_t var;
-        int temp_ptr;
+        struct lvalue_t temp;
     };
     // 1 if lvalue is a array, else 0
     int is_array;
+    // for array store index in symbol table, to have an access to rangelist
+    int index_symbol_table;
+
     struct quad_list_t *true;
     struct quad_list_t *false;
 };
