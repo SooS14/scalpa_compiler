@@ -28,6 +28,7 @@ function f_1() : bool
         return a_bool;
     end;
 
+
 begin
     max_array(val);
     a := not true;

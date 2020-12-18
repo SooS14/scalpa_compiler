@@ -42,6 +42,95 @@ void write_main(char * program_name) {
     check_snprintf(snprintf(buff, size_buff, "# program : %s\n\t.text\n\t.globl\
  main\nmain:\n", program_name), size_buff);
     CHECK(write(fd_out, buff, strlen(buff)));
+
+
+
+//ajout simon
+
+    struct quad_t quad;
+    struct quad_t quad1;
+    int base_data = 0x10000000;
+
+    dprintf(1, "quad_main : %i\n", symbol_table.quad_main);
+    dprintf(1, "nextquad : %i\n", quad_table.nextquad);
+
+    
+    for (int i = symbol_table.quad_main ; i < quad_table.nextquad ; i++)
+    {
+        quad = quad_table.quads[i];
+        quad1 = quad_table.quads[i+1];
+
+        switch(quad.instruction)
+        {
+            case GOTO_QUAD : dprintf(fd_out, "%i,    GOTO_QUAD\n", i);                break;
+
+            case AFF_QUAD : 
+                dprintf(fd_out, "%i,    AFF_QUAD\n", i);
+                switch (quad.op1.type) {
+                    case INT:
+                        dprintf(fd_out, "    li $t0, %i\n", quad.op1.const_int);
+                        dprintf(fd_out, "    sw $t0, 0x%.x\n", base_data);
+                        dprintf(fd_out, "\n");
+                        symbol_table.symbols[quad.op1.var.ptr].addr = base_data;
+                        symbol_table.symbols[quad.op2.var.ptr].addr = base_data;
+                        symbol_table.symbols[quad.res.var.ptr].addr = base_data;
+                        base_data += 0x32;
+
+                        break;
+                    case BOOL: 
+                        break;
+                    case STRING: 
+                        break;
+            } 
+            break;      
+                    
+                
+
+
+
+            case IF_QUAD : dprintf(fd_out, "%i,    IF_QUAD\n", i);                    break;
+            case IF_LT_QUAD : dprintf(fd_out, "%i,    IF_LT_QUAD\n", i);              break;
+            case IF_GT_QUAD : dprintf(fd_out, "%i,    IF_GT_QUAD\n", i);              break;
+            case IF_LT_EQ_QUAD : dprintf(fd_out, "%i,    IF_LT_EQ_QUAD\n", i);        break;
+            case IF_GT_EQ_QUAD : dprintf(fd_out, "%i,    IF_GT_EQ_QUAD\n", i);        break;
+            case IF_EQ_QUAD : dprintf(fd_out, "%i,    IF_EQ_QUAD\n", i);              break;
+            case IF_DIFF_QUAD : dprintf(fd_out, "%i,    IF_DIFF_QUAD\n", i);          break;
+
+            case OPB_PLUS_QUAD: 
+                dprintf(fd_out, "%i,    OPB_PLUS_QUAD\n", i);
+                dprintf(fd_out, "    lw   $t0, 0x%.x\n", symbol_table.symbols[quad.op1.var.ptr].addr);
+                dprintf(fd_out, "    lw   $t1, 0x%.x\n", symbol_table.symbols[quad.op2.var.ptr].addr);
+                dprintf(fd_out, "    addu $t2, $t1, $t0\n");
+                dprintf(fd_out, "    sw   $t2, 0x%.x\n", symbol_table.symbols[quad1.res.var.ptr].addr);
+                dprintf(fd_out, "\n");
+                break;
+
+
+            case OPB_MINUS_QUAD: dprintf(fd_out, "%i,    OPB_MINUS_QUAD\n", i);       break;
+            case OPB_STAR_QUAD: dprintf(fd_out, "%i,    OPB_STAR_QUAD\n", i);         break;
+            case OPB_DIVIDE_QUAD: dprintf(fd_out, "%i,    OPB_DIVIDE_QUAD\n", i);     break;
+            case OPB_POW_QUAD: dprintf(fd_out, "%i,    OPB_POW_QUAD\n", i);           break;
+            case OPB_LT_QUAD: dprintf(fd_out, "%i,    OPB_LT_QUAD\n", i);             break;
+            case OPB_LT_EQ_QUAD: dprintf(fd_out, "%i,    OPB_LT_EQ_QUAD\n", i);       break;
+            case OPB_GT_QUAD: dprintf(fd_out, "%i,    OPB_GT_QUAD\n", i);             break;
+            case OPB_GT_EQ_QUAD: dprintf(fd_out, "%i,    OPB_GT_EQ_QUAD\n", i);       break;
+            case OPB_EQ_QUAD: dprintf(fd_out, "%i,    OPB_EQ_QUAD\n", i);             break;
+            case OPB_DIFF_QUAD: dprintf(fd_out, "%i,    OPB_DIFF_QUAD\n", i);         break;
+            case OPU_MINUS_QUAD: dprintf(fd_out, "%i,    OPU_MINUS_QUAD\n", i);       break;
+            case OPU_NOT_QUAD: dprintf(fd_out, "%i,    OPU_NOT_QUAD\n", i);           break;
+            case READ_QUAD: dprintf(fd_out, "%i,    READ_QUAD\n", i);                 break;
+            case WRITE_QUAD: dprintf(fd_out, "%i,    WRITE_QUAD\n", i);               break;
+            case CALL_QUAD: dprintf(fd_out, "%i,    CALL_QUAD\n", i);                 break;
+            case CALL_AFF_QUAD: dprintf(fd_out, "%i,    CALL_AFF_QUAD\n", i);         break;
+            case PARAM_QUAD: dprintf(fd_out, "%i,    PARAM_QUAD\n", i);               break;
+            case RETURN_UNIT_QUAD: dprintf(fd_out, "%i,    RETURN_UNIT_QUAD\n", i);   break;
+            case RETURN_QUAD: dprintf(fd_out, "%i,    RETURN_QUAD\n", i);             break;
+        }
+    }
+
+//fin ajout
+
+
     free(buff);
 
 }
@@ -1168,6 +1257,13 @@ int main (int argc, char * argv[]) {
         display_symbol_table();
     }
     display_quad_table(); //debug
+
+    //mips trad
+
+    //dprintf(fd_out,"soos: %i\n",symbol_table.quad_main);
+
+    //########
+
 
     CHECK(close(args.fd));
     free_quad_table();

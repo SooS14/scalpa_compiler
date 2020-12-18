@@ -119,6 +119,7 @@ struct symbol_t {
     // depends on (in the symbol table)
     // for function scope = 0
     int scope;
+    int addr;
 };
 
 struct symbol_table_t {

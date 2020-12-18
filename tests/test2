@@ -1,0 +1,10 @@
+program TEST
+
+var i,j,max : bool;
+
+
+begin
+i := true and false;
+j := true and i;
+max := j and i;
+end
