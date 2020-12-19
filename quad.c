@@ -140,6 +140,9 @@ void display_quad(struct quad_t quad) {
     else if (quad.instruction == RETURN_UNIT_QUAD) {
         printf("[ return ]\n");
     }
+    else if (quad.instruction == EXIT_QUAD) {
+        printf("[ exit ]\n");
+    }
     else{
         printf("[");
         display_quad_op(quad.res);
@@ -265,6 +268,9 @@ void free_quad(struct quad_t quad) {
     else if (quad.instruction == RETURN_UNIT_QUAD) {
         return;
     }
+    else if (quad.instruction == EXIT_QUAD) {
+        return;
+    }
     else {
         free_quad_op(quad.res);
         free_quad_op(quad.op1);
@@ -285,12 +291,12 @@ int get_instr(int op, int is_unary) {
         case OPB_STAR:   return OPB_STAR_QUAD;   break;
         case OPB_DIVIDE: return OPB_DIVIDE_QUAD; break;
         case OPB_POW:    return OPB_POW_QUAD;    break;
-        case OPB_L:      return IF_LT_QUAD;     break;
-        case OPB_L_EQ:   return IF_LT_EQ_QUAD;  break;
-        case OPB_G:      return IF_GT_QUAD;     break;
-        case OPB_G_EQ:   return IF_GT_EQ_QUAD;  break;
-        case OPB_EQ:     return IF_EQ_QUAD;     break;
-        case OPB_DIFF:   return IF_DIFF_QUAD;   break;
+        case OPB_L:      return IF_LT_QUAD;      break;
+        case OPB_L_EQ:   return IF_LT_EQ_QUAD;   break;
+        case OPB_G:      return IF_GT_QUAD;      break;
+        case OPB_G_EQ:   return IF_GT_EQ_QUAD;   break;
+        case OPB_EQ:     return IF_EQ_QUAD;      break;
+        case OPB_DIFF:   return IF_DIFF_QUAD;    break;
         case OPU_NOT:    return OPU_NOT_QUAD;    break;
         case OP_MINUS:   return is_unary ? OPU_MINUS_QUAD : OPB_MINUS_QUAD;
         break;
@@ -308,15 +314,16 @@ void gencode (int instruction,
             quad_table.table_size * sizeof(struct quad_t));
         MCHECK(quad_table.quads);
     }
-    quad_table.quads[quad_table.nextquad].quad_4 = (instruction == GOTO_QUAD ||
-         instruction == IF_GT_QUAD || instruction == IF_LT_QUAD ||
-         instruction == IF_LT_EQ_QUAD || instruction == IF_GT_EQ_QUAD ||
-         instruction == IF_EQ_QUAD || instruction == IF_DIFF_QUAD || 
-         instruction ==IF_QUAD);
+    quad_table.quads[quad_table.nextquad].is_label = 0;
+    quad_table.quads[quad_table.nextquad].res_type = 
+        (instruction == GOTO_QUAD || instruction == IF_GT_QUAD || 
+         instruction == IF_LT_QUAD || instruction == IF_LT_EQ_QUAD ||
+         instruction == IF_GT_EQ_QUAD || instruction == IF_EQ_QUAD ||
+         instruction == IF_DIFF_QUAD || instruction ==IF_QUAD);
     quad_table.quads[quad_table.nextquad].instruction = instruction;
     quad_table.quads[quad_table.nextquad].op1 = op1;
     quad_table.quads[quad_table.nextquad].op2 = op2;
-    if (quad_table.quads[quad_table.nextquad].quad_4) {
+    if (quad_table.quads[quad_table.nextquad].res_type) {
         quad_table.quads[quad_table.nextquad].target = GOTO_INCOMPLETE;
     }
     else {
@@ -332,10 +339,38 @@ void gencode_goto (int target) {
             quad_table.table_size * sizeof(struct quad_t));
         MCHECK(quad_table.quads);
     }
+    quad_table.quads[quad_table.nextquad].is_label = 0;
     quad_table.quads[quad_table.nextquad].instruction = GOTO_QUAD;
-    quad_table.quads[quad_table.nextquad].quad_4 = 1;
+    quad_table.quads[quad_table.nextquad].res_type = 1;
     quad_table.quads[quad_table.nextquad].target = target;
     quad_table.nextquad ++;
+}
+
+void add_exit () {
+    struct expr_t op;
+    quad_table.quads[quad_table.nextquad].instruction = EXIT_QUAD;
+    quad_table.quads[quad_table.nextquad].op1 =op;
+    quad_table.quads[quad_table.nextquad].op1 = op;
+    quad_table.quads[quad_table.nextquad].res = op;
+    quad_table.quads[quad_table.nextquad].res_type = 0;
+    quad_table.quads[quad_table.nextquad].is_label = 0;
+    quad_table.nextquad ++;
+}
+
+void complete_labels() {
+    for (int i = 0; i < quad_table.nextquad; i++) {
+        if (quad_table.quads[i].instruction == GOTO_QUAD) {
+            if (quad_table.quads[i].target == -1) {
+                handle_error("imcoplete goto at quad %i", i); // can't happen
+            }
+            else if (quad_table.quads[i].target >= quad_table.nextquad) {
+                handle_error("goto out of range at quad %i", i); // can't happen
+            }
+            else {
+                quad_table.quads[quad_table.quads[i].target].is_label = 1;
+            }
+        }
+    }
 }
 
 int newtemp(int mode) {

@@ -43,6 +43,7 @@ begin
     begin
         val[i,j] := i;
         read i;
+        a := a xor a;
     end;
     (*else
         begin end*)

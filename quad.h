@@ -34,7 +34,8 @@ enum instruction_t {
     CALL_AFF_QUAD,
     PARAM_QUAD,
     RETURN_UNIT_QUAD,
-    RETURN_QUAD
+    RETURN_QUAD,
+    EXIT_QUAD
 };
 
 struct quad_t {
@@ -50,6 +51,7 @@ struct quad_t {
     // {CALL op1 _ res} // call op1, res (res = const nb of par)
     // {return_unit _ _ _}
     // {return _ _ res}
+    // {exit _ _ _}
     enum instruction_t instruction;
     struct expr_t op1;
     struct expr_t op2;
@@ -57,7 +59,8 @@ struct quad_t {
         struct expr_t res;
         int target;
     };
-    int quad_4; // type of union res=0, target=1
+    int res_type; // type of union res=0, target=1
+    int is_label;
 };
 
 struct quad_table_t {
@@ -106,6 +109,18 @@ void gencode (int instruction,
               struct expr_t res);
 
 void gencode_goto (int target);
+
+/**
+ * @brief add an exit quad at the end of the quad table
+ * @result void
+ */
+void add_exit();
+
+/**
+ * @brief set to 1 is_label attribut of each quad that is a target of a goto
+ * @result void
+ */
+void complete_labels();
 
 /**
  * @brief return a new temp ptr for quad generation

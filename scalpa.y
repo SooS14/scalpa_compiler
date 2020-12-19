@@ -56,19 +56,24 @@ void write_main(char * program_name) {
 
     
     for (int i = symbol_table.quad_main ; i < quad_table.nextquad ; i++) {
+        if (quad_table.quads[i].is_label) {
+            dprintf(fd_out, "\n__label_%i:\n", i);
+        }
+
         quad = quad_table.quads[i];
         quad1 = quad_table.quads[i+1];
 
         switch(quad.instruction) {
-            case GOTO_QUAD : 
+            case GOTO_QUAD :
                 dprintf(fd_out, "#%i,    GOTO_QUAD\n", i);
+                dprintf(fd_out, "\tj __label_%i:\n",quad_table.quads[i].target);
                 break;
             case AFF_QUAD : 
                 dprintf(fd_out, "#%i,    AFF_QUAD\n", i);
                 switch (quad.op1.type) {
                     case INT:
-                        dprintf(fd_out, "    li $t0, %i\n", quad.op1.const_int);
-                        dprintf(fd_out, "    sw $t0, 0x%.x\n", base_data);
+                        dprintf(fd_out, "\tli $t0, %i\n", quad.op1.const_int);
+                        dprintf(fd_out, "\tsw $t0, 0x%.x\n", base_data);
                         dprintf(fd_out, "\n");
                         symbol_table.symbols[quad.op1.var.ptr].addr = base_data;
                         symbol_table.symbols[quad.op2.var.ptr].addr = base_data;
@@ -104,12 +109,12 @@ void write_main(char * program_name) {
                 break;
             case OPB_PLUS_QUAD:
                 dprintf(fd_out, "#%i,    OPB_PLUS_QUAD\n", i);
-                dprintf(fd_out, "    lw   $t0, 0x%.x\n",
+                dprintf(fd_out, "\tlw   $t0, 0x%.x\n",
                      symbol_table.symbols[quad.op1.var.ptr].addr);
-                dprintf(fd_out, "    lw   $t1, 0x%.x\n", 
+                dprintf(fd_out, "\tlw   $t1, 0x%.x\n", 
                     symbol_table.symbols[quad.op2.var.ptr].addr);
-                dprintf(fd_out, "    addu $t2, $t1, $t0\n");
-                dprintf(fd_out, "    sw   $t2, 0x%.x\n",
+                dprintf(fd_out, "\taddu $t2, $t1, $t0\n");
+                dprintf(fd_out, "\tsw   $t2, 0x%.x\n",
                     symbol_table.symbols[quad1.res.var.ptr].addr);
                 dprintf(fd_out, "\n");
                 break;
@@ -169,6 +174,11 @@ void write_main(char * program_name) {
                 break;
             case RETURN_QUAD:
                 dprintf(fd_out, "#%i,    RETURN_QUAD\n", i);
+                break;
+            case EXIT_QUAD:
+                dprintf(fd_out, "#%i,    EXIT_QUAD\n", i);
+                dprintf(fd_out, "\tli $v0, 10\n");
+                dprintf(fd_out, "\tsyscall\n");
                 break;
         }
     }
@@ -293,10 +303,12 @@ program :
         symbol_table.cur_symbol_scope = 0;
         symbol_table.quad_main = quad_table.nextquad;
         } 
-    instr{
+    instr {
         complete_quad_list($7, quad_table.nextquad);
         free_quad_list($7);
         newtemp(1);
+        add_exit();
+        complete_labels();
         write_main($2);
         // TODO write_functions();
         write_data();
