@@ -359,7 +359,7 @@ void add_exit () {
 
 void complete_labels() {
     for (int i = 0; i < quad_table.nextquad; i++) {
-        if (quad_table.quads[i].instruction == GOTO_QUAD) {
+        if (quad_table.quads[i].res_type) {
             if (quad_table.quads[i].target == -1) {
                 handle_error("imcoplete goto at quad %i", i); // can't happen
             }
