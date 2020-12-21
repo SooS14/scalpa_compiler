@@ -68,23 +68,54 @@ void write_main(char * program_name) {
                 dprintf(fd_out, "#%i,    GOTO_QUAD\n", i);
                 dprintf(fd_out, "\tj __label_%i:\n",quad_table.quads[i].target);
                 break;
+
             case AFF_QUAD : 
                 dprintf(fd_out, "#%i,    AFF_QUAD\n", i);
-                switch (quad.op1.type) {
-                    case INT:
-                        dprintf(fd_out, "\tli $t0, %i\n", quad.op1.const_int);
-                        dprintf(fd_out, "\tsw $t0, 0x%.x\n", base_data);
-                        dprintf(fd_out, "\n");
-                        symbol_table.symbols[quad.op1.var.ptr].addr = base_data;
-                        symbol_table.symbols[quad.op2.var.ptr].addr = base_data;
-                        symbol_table.symbols[quad.res.var.ptr].addr = base_data;
-                        base_data += 0x32;
+                switch(quad.res.quad_op_type)
+                {   
+                    case QO_VAR:
+                        switch(quad.op1.quad_op_type)
+                        {
+                            case QO_CST:
+                                dprintf(fd_out, "\tli $t9, %i\n",
+                                    quad.op1.const_int);
+                                dprintf(fd_out, "\tsw $t9, %s\n",
+                                    symbol_table.symbols[quad.res.var.ptr].ident);
+                                break;
+                                
+                            case QO_TEMP:
+                                dprintf(fd_out, "\tsw $t%i, %s\n",
+                                    quad.op1.temp.ptr,
+                                    symbol_table.symbols[quad.res.var.ptr].ident);
+                                break;
+                        }
                         break;
-                    case BOOL:
+                    
+                    case QO_TEMP:
+                        switch(quad.op1.quad_op_type)
+                        {
+                            case QO_CST:
+                                dprintf(fd_out, "\tli $t%i, %i\n",
+                                    quad.res.temp.ptr,
+                                    quad.op1.const_int);
+                                break;
+                            
+                            case QO_VAR:
+                                    dprintf(fd_out, "\tlw $t%i, %s\n",
+                                        quad.res.temp.ptr,
+                                        symbol_table.symbols[quad.op1.var.ptr].ident);
+                                break;
+                                
+                            case QO_TEMP:
+                                dprintf(fd_out, "\tlw $t%i, %s\n",
+                                    quad.res.temp.ptr,
+                                    symbol_table.symbols[quad.op1.var.ptr].ident);
+                                break;
+                        }
                         break;
-                    case STRING:
-                        break; //test avant, ca ne peut pas arrive
                 }
+                dprintf(fd_out,"\n");
+
                 break;
             case IF_QUAD : 
                 dprintf(fd_out, "#%i,    IF_QUAD\n", i);
@@ -109,24 +140,126 @@ void write_main(char * program_name) {
                 break;
             case OPB_PLUS_QUAD:
                 dprintf(fd_out, "#%i,    OPB_PLUS_QUAD\n", i);
-                dprintf(fd_out, "\tlw   $t0, 0x%.x\n",
-                     symbol_table.symbols[quad.op1.var.ptr].addr);
-                dprintf(fd_out, "\tlw   $t1, 0x%.x\n", 
-                    symbol_table.symbols[quad.op2.var.ptr].addr);
-                dprintf(fd_out, "\taddu $t2, $t1, $t0\n");
-                dprintf(fd_out, "\tsw   $t2, 0x%.x\n",
-                    symbol_table.symbols[quad1.res.var.ptr].addr);
+                if ((quad.op1.quad_op_type == QO_TEMP) && 
+                     (quad.op2.quad_op_type == QO_CST))
+                {
+                    dprintf(fd_out, "\taddi $t%i, $t%i, %i\n",
+                        quad.res.temp.ptr,
+                        quad.op1.temp.ptr,
+                        quad.op2.const_int);
+                }
+                else if ((quad.op1.quad_op_type == QO_CST) &&
+                    (quad.op2.quad_op_type == QO_TEMP))
+                {
+                    dprintf(fd_out, "\taddi $t%i, $t%i, %i\n",
+                        quad.res.temp.ptr,
+                        quad.op2.temp.ptr,
+                        quad.op1.const_int);
+                }
+                else
+                {
+                    dprintf(fd_out, "\tadd $t%i, $t%i, $t%i\n",
+                        quad.res.temp.ptr,
+                        quad.op1.temp.ptr,
+                        quad.op2.const_int);
+                }
                 dprintf(fd_out, "\n");
                 break;
+
             case OPB_MINUS_QUAD:
                 dprintf(fd_out, "#%i,    OPB_MINUS_QUAD\n", i);
+                if ((quad.op1.quad_op_type == QO_TEMP) && 
+                     (quad.op2.quad_op_type == QO_CST))
+                {
+                    dprintf(fd_out, "\tli $t9, %i\n",
+                        quad.op2.const_int);
+                    dprintf(fd_out, "\tsub $t%i, $t%i, $t9\n",
+                        quad.res.temp.ptr,
+                        quad.op1.temp.ptr);
+                }
+                else if ((quad.op1.quad_op_type == QO_CST) &&
+                    (quad.op2.quad_op_type == QO_TEMP))
+                {
+                    dprintf(fd_out, "\tli $t9, %i\n",
+                        quad.op1.const_int);
+                    dprintf(fd_out, "\tsub $t%i, $t9, $t%i\n",
+                        quad.res.temp.ptr,
+                        quad.op2.temp.ptr);
+                }
+                else
+                {
+                    dprintf(fd_out, "\tsub $t%i, $t%i, $t%i\n",
+                        quad.res.temp.ptr,
+                        quad.op1.temp.ptr,
+                        quad.op2.const_int);
+                }
+                dprintf(fd_out, "\n");
                 break;
+
+
             case OPB_STAR_QUAD:
                 dprintf(fd_out, "#%i,    OPB_STAR_QUAD\n", i);
+                if ((quad.op1.quad_op_type == QO_TEMP) && 
+                     (quad.op2.quad_op_type == QO_CST))
+                {
+                    dprintf(fd_out, "\tli $t9, %i\n",
+                        quad.op2.const_int);
+                    dprintf(fd_out, "\tmulo $t%i, $t%i, $t9\n",
+                        quad.res.temp.ptr,
+                        quad.op1.temp.ptr);
+                }
+                else if ((quad.op1.quad_op_type == QO_CST) &&
+                    (quad.op2.quad_op_type == QO_TEMP))
+                {
+                    dprintf(fd_out, "\tli $t9, %i\n",
+                        quad.op1.const_int);
+                    dprintf(fd_out, "\tmulo $t%i, $t9, $t%i\n",
+                        quad.res.temp.ptr,
+                        quad.op2.temp.ptr);
+                }
+                else
+                {
+                    dprintf(fd_out, "\tmulo $t%i, $t%i, $t%i\n",
+                        quad.res.temp.ptr,
+                        quad.op1.temp.ptr,
+                        quad.op2.const_int);
+                }
+                dprintf(fd_out, "\n");
                 break;
+
+
             case OPB_DIVIDE_QUAD:
                 dprintf(fd_out, "#%i,    OPB_DIVIDE_QUAD\n", i);
+                if ((quad.op1.quad_op_type == QO_TEMP) && 
+                     (quad.op2.quad_op_type == QO_CST))
+                {
+                    dprintf(fd_out, "\tli $t9, %i\n",
+                        quad.op2.const_int);
+                    dprintf(fd_out, "\tdiv $t%i, $t%i, $t9\n",
+                        quad.res.temp.ptr,
+                        quad.op1.temp.ptr);
+                }
+                else if ((quad.op1.quad_op_type == QO_CST) &&
+                    (quad.op2.quad_op_type == QO_TEMP))
+                {
+                    dprintf(fd_out, "\tli $t9, %i\n",
+                        quad.op1.const_int);
+                    dprintf(fd_out, "\tdiv $t%i, $t9, $t%i\n",
+                        quad.res.temp.ptr,
+                        quad.op2.temp.ptr);
+                }
+                else
+                {
+                    dprintf(fd_out, "\tdiv $t%i, $t%i, $t%i\n",
+                        quad.res.temp.ptr,
+                        quad.op1.temp.ptr,
+                        quad.op2.const_int);
+                }
+                dprintf(fd_out, "\n");
                 break;
+
+                
+
             case OPB_POW_QUAD:
                 dprintf(fd_out, "#%i,    OPB_POW_QUAD\n", i);
                 break;
@@ -148,12 +281,25 @@ void write_main(char * program_name) {
             case OPB_DIFF_QUAD:
                 dprintf(fd_out, "#%i,    OPB_DIFF_QUAD\n", i);
                 break;
+
             case OPU_MINUS_QUAD:
                 dprintf(fd_out, "#%i,    OPU_MINUS_QUAD\n", i);
+                dprintf(fd_out, "\tneg $t%i, $t%i\n",
+                    quad.res.temp.ptr,
+                    quad.op1.temp.ptr);
+                dprintf(fd_out,"\n");
                 break;
+
+
             case OPU_NOT_QUAD:
                 dprintf(fd_out, "#%i,    OPU_NOT_QUAD\n", i);
+                dprintf(fd_out, "\tno $t%i, $t%i\n",
+                    quad.res.temp.ptr,
+                    quad.op1.temp.ptr);
+                dprintf(fd_out,"\n");
                 break;
+
+
             case READ_QUAD:
                 dprintf(fd_out, "#%i,    READ_QUAD\n", i);
                 break;
@@ -190,6 +336,8 @@ void write_main(char * program_name) {
 
 }
 
+
+/*
 void write_data() {
     char * buff = malloc(9);
     MCHECK(buff);
@@ -245,6 +393,20 @@ void write_data() {
     }
     free(buff);
 }
+*/
+
+void write_data() {
+    dprintf(fd_out,"\n\t.data\n");
+    for (int i = 0; i < symbol_table.last_ident_index; i++) 
+    {
+        if ((symbol_table.symbols[i].var_func_par == VAR_T) &&
+            (symbol_table.symbols[i].scope == 0))
+        {
+            dprintf(fd_out, "\t%s:\t.word 0\n",symbol_table.symbols[i].ident);
+        }
+    }
+}
+
 
 %}
 %code requires {

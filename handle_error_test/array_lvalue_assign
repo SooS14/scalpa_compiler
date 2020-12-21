@@ -1,0 +1,9 @@
+program lvalue_array_assign
+    var i,j : int
+    
+
+begin
+    i := [1,2,3];
+end    
+    
+    
