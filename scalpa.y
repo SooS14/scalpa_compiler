@@ -17,7 +17,9 @@
 
 struct symbol_table_t symbol_table;
 struct quad_table_t quad_table;
+char ** string_table;
 
+int string_indice = 0;
 int fd_out;
 
 int scope_function = 0; // used to check if the return is general
@@ -46,10 +48,9 @@ void write_main(char * program_name) {
 
 
 //ajout simon
-
+    string_table = malloc(1000 * sizeof(char *));
     struct quad_t quad;
-    struct quad_t quad1;
-    int base_data = 0x10000000;
+    int count = 0;
 
     dprintf(1, "quad_main : %i\n", symbol_table.quad_main);
     dprintf(1, "nextquad : %i\n", quad_table.nextquad);
@@ -61,7 +62,6 @@ void write_main(char * program_name) {
         }
 
         quad = quad_table.quads[i];
-        quad1 = quad_table.quads[i+1];
 
         switch(quad.instruction) {
             case GOTO_QUAD :
@@ -115,8 +115,8 @@ void write_main(char * program_name) {
                         break;
                 }
                 dprintf(fd_out,"\n");
-
                 break;
+
             case IF_QUAD : 
                 dprintf(fd_out, "#%i,    IF_QUAD\n", i);
                 break;
@@ -138,6 +138,7 @@ void write_main(char * program_name) {
             case IF_DIFF_QUAD :
                 dprintf(fd_out, "#%i,    IF_DIFF_QUAD\n", i);
                 break;
+
             case OPB_PLUS_QUAD:
                 dprintf(fd_out, "#%i,    OPB_PLUS_QUAD\n", i);
                 if ((quad.op1.quad_op_type == QO_TEMP) && 
@@ -258,26 +259,100 @@ void write_main(char * program_name) {
                 dprintf(fd_out, "\n");
                 break;
 
-                
-
             case OPB_POW_QUAD:
                 dprintf(fd_out, "#%i,    OPB_POW_QUAD\n", i);
+                count = i;
+                if ((quad.op1.quad_op_type == QO_TEMP) && 
+                     (quad.op2.quad_op_type == QO_CST))
+                {
+                    dprintf(fd_out, "\tli $t9, 0\n");
+                    dprintf(fd_out, "\tli $t%i, 1\n", 
+                        quad.res.temp.ptr);
+                    dprintf(fd_out, "pow_loop_%i: beq $t9, %i, end_pow_%i\n",
+                        count,
+                        quad.op2.const_int,
+                        count);
+                    dprintf(fd_out, "\tmulo $t%i, $t%i, $t%i\n",
+                        quad.res.temp.ptr,
+                        quad.res.temp.ptr,
+                        quad.op1.temp.ptr);
+                    dprintf(fd_out, "\taddi $t9, $t9, 1\n");
+                    dprintf(fd_out, "\tj pow_loop_%i\n", count);
+                    dprintf(fd_out, "end_pow_%i : li $t9, 0\n", count);
+                }
+                else if ((quad.op1.quad_op_type == QO_CST) &&
+                    (quad.op2.quad_op_type == QO_TEMP))
+                {
+                    dprintf(fd_out, "\tli $t9, 0\n");
+                    dprintf(fd_out, "\tli $t%i, 1\n", 
+                        quad.res.temp.ptr);
+                    dprintf(fd_out, "pow_loop_%i: beq $t9, $t%i, end_pow_%i\n",
+                        count,
+                        quad.op2.temp.ptr,
+                        count);
+                    dprintf(fd_out, "\tmulo $t%i, $t%i, %i\n",
+                        quad.res.temp.ptr,
+                        quad.res.temp.ptr,
+                        quad.op1.const_int);
+                    dprintf(fd_out, "\taddi $t9, $t9, 1\n");
+                    dprintf(fd_out, "\tj pow_loop_%i\n", count);
+                    dprintf(fd_out, "end_pow_%i : li $t9, 0\n", count);
+                }
+                else
+                {
+                    dprintf(fd_out, "\tli $t9, 0\n");
+                    dprintf(fd_out, "\tli $t%i, 1\n", 
+                        quad.res.temp.ptr);
+                    dprintf(fd_out, "pow_loop_%i: beq $t9, $t%i, end_pow_%i\n",
+                        count,
+                        quad.op2.temp.ptr,
+                        count);
+                    dprintf(fd_out, "\tmulo $t%i, $t%i, $t%i\n",
+                        quad.res.temp.ptr,
+                        quad.res.temp.ptr,
+                        quad.op1.temp.ptr);
+                    dprintf(fd_out, "\taddi $t9, $t9, 1\n");
+                    dprintf(fd_out, "\tj pow_loop_%i\n", count);
+                    dprintf(fd_out, "end_pow_%i : li $t9, 0\n", count);
+                }
+                dprintf(fd_out, "\n");             
                 break;
+
             case OPB_LT_QUAD:
                 dprintf(fd_out, "#%i,    OPB_LT_QUAD\n", i);
+                if ((quad.op1.quad_op_type == QO_TEMP) && 
+                     (quad.op2.quad_op_type == QO_CST))
+                {
+
+                }
+                else if ((quad.op1.quad_op_type == QO_CST) &&
+                    (quad.op2.quad_op_type == QO_TEMP))
+                {
+                }
+                else if ((quad.op1.quad_op_type == QO_TEMP) &&
+                    (quad.op2.quad_op_type == QO_TEMP))
+                {
+                    
+                }
+                dprintf(fd_out, "\n");
                 break;
+
             case OPB_LT_EQ_QUAD:
                 dprintf(fd_out, "#%i,    OPB_LT_EQ_QUAD\n", i);
                 break;
+
             case OPB_GT_QUAD:
                 dprintf(fd_out, "#%i,    OPB_GT_QUAD\n", i);
                 break;
+
             case OPB_GT_EQ_QUAD:
                 dprintf(fd_out, "#%i,    OPB_GT_EQ_QUAD\n", i);
                 break;
+
             case OPB_EQ_QUAD:
                 dprintf(fd_out, "#%i,    OPB_EQ_QUAD\n", i);
                 break;
+
             case OPB_DIFF_QUAD:
                 dprintf(fd_out, "#%i,    OPB_DIFF_QUAD\n", i);
                 break;
@@ -302,10 +377,45 @@ void write_main(char * program_name) {
 
             case READ_QUAD:
                 dprintf(fd_out, "#%i,    READ_QUAD\n", i);
+                dprintf(fd_out, "\tli $v0, 5\n");
+                dprintf(fd_out, "\tsw $v0, %s\n", 
+                    symbol_table.symbols[quad.op1.var.ptr].ident);
+                dprintf(fd_out, "\tsyscall\n");
+                dprintf(fd_out, "\n");
                 break;
+
             case WRITE_QUAD:
                 dprintf(fd_out, "#%i,    WRITE_QUAD\n", i);
+
+                if (quad.op1.quad_op_type == QO_TEMP)
+                {
+                    dprintf(fd_out, "\tli $v0, 1\n");
+                    dprintf(fd_out, "\tmove $a0, $t%i\n",
+                        quad.op1.temp.ptr);
+                    dprintf(fd_out, "\tsyscall\n");
+                }
+                else if (quad.op1.quad_op_type == QO_CST)
+                {
+                    if (quad.op1.type == STRING)
+                    {
+                        string_table[string_indice] = quad.op1.const_string;
+                        dprintf(fd_out, "\tli $v0, 4\n");
+                        dprintf(fd_out, "\tla $a0, __print_string_%i\n",
+                            string_indice);
+                        dprintf(fd_out, "\tsyscall\n");
+                        string_indice++;
+                    }
+                    if (quad.op1.type == INT)
+                    {
+                        dprintf(fd_out, "\tli $v0, 1\n");
+                        dprintf(fd_out, "\tli $a0, %i\n",
+                            quad.op1.const_int);
+                        dprintf(fd_out, "\tsyscall\n");
+                    }
+                }
+                dprintf(fd_out, "\n");
                 break;
+
             case CALL_QUAD:
                 dprintf(fd_out, "#%i,    CALL_QUAD\n", i);
                 break;
@@ -404,6 +514,10 @@ void write_data() {
         {
             dprintf(fd_out, "\t%s:\t.word 0\n",symbol_table.symbols[i].ident);
         }
+    }
+    for (int i = 0; i < string_indice; i++)
+    {
+        dprintf(fd_out, "__print_string_%i: .asciiz %s\n",i , string_table[i]);
     }
 }
 
@@ -1102,6 +1216,12 @@ expr :
         if ($1.quad_op_type == QO_CST && $4.quad_op_type == QO_CST &&
             $1.type != BOOL) {
             $$ = compute_opb_const_expr ($1, $4, $2, $$.type);
+            if ($$.type == BOOL) {
+                $$.true = create_quad_list(quad_table.nextquad);
+                gencode(IF_QUAD, $$, $$, $$);
+                $$.false = create_quad_list(quad_table.nextquad);
+                gencode(GOTO_QUAD, $$, $$, $$);
+            }
         }
         else {
             if ($1.type == INT) {
@@ -1608,6 +1728,7 @@ int main (int argc, char * argv[]) {
 
 
     CHECK(close(args.fd));
+    free(string_table);
     free_quad_table();
     free_symbol_table();
     yylex_destroy();

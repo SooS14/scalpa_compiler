@@ -1,9 +1,9 @@
         	.data
 new_line:  	.asciiz "\n"   # new_line pointe vers "\n\0"
         	.text
-        	.globl __start
+        	.globl main
 
-__start:
+main:
     li     $t0, 4            # 4 dans le registre t0
     mul    $t0, $t0, $t0     # t0*t0 mis dans t0
     li     $t1, 4            # 4 dans le registre t1
@@ -16,3 +16,5 @@ __start:
     li   $v0, 4              # la primitive print_string
     la   $a0, new_line       # a0  l'adresse de new_line
     syscall		      # appel système pour lancer la primitive print_string
+    li $v0, 10
+    syscall
