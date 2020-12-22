@@ -138,6 +138,15 @@ struct symbol_table_t {
     int quad_main;
 };
 
+struct string_table_t {
+    // size of symbol table (allocated)
+    int table_size;
+    // number of symbols in the table
+    int last_ident_index;
+    // array of strings
+    char **strings;
+};
+
 /**
  * @brief check the return value of a snprintf call -> exit if an error occured 
  * @param result value returned by snprintf call to check

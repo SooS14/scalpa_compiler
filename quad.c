@@ -30,14 +30,7 @@ void display_instruction(int instr) {
         case OPB_STAR_QUAD:   printf("*");       break;
         case OPB_DIVIDE_QUAD: printf("/");       break;
         case OPB_POW_QUAD:    printf("^");       break;
-        case OPB_LT_QUAD:     printf("<");       break;
-        case OPB_LT_EQ_QUAD:  printf("<=");      break;
-        case OPB_GT_QUAD:     printf(">");       break;
-        case OPB_GT_EQ_QUAD:  printf(">=");      break;
-        case OPB_EQ_QUAD:     printf("==");      break;
-        case OPB_DIFF_QUAD:   printf("!=");      break;
         case OPU_MINUS_QUAD:  printf("-");       break;
-        case OPU_NOT_QUAD:    printf("not");     break;
     }
 }
 
@@ -92,8 +85,7 @@ void display_quad(struct quad_t quad) {
         display_quad_op(quad.op1);
         printf("]\n");
     }
-    else if(quad.instruction == OPU_MINUS_QUAD ||
-            quad.instruction == OPU_NOT_QUAD) {
+    else if(quad.instruction == OPU_MINUS_QUAD) {
         printf("[");
         display_quad_op(quad.res);
         printf(":= ");
@@ -239,8 +231,7 @@ void free_quad(struct quad_t quad) {
         free_quad_op(quad.res);
         free_quad_op(quad.op1);
     }
-    else if(quad.instruction == OPU_MINUS_QUAD ||
-            quad.instruction == OPU_NOT_QUAD) {
+    else if(quad.instruction == OPU_MINUS_QUAD) {
         free_quad_op(quad.res);
         free_quad_op(quad.op1);
     }
@@ -297,7 +288,6 @@ int get_instr(int op, int is_unary) {
         case OPB_G_EQ:   return IF_GT_EQ_QUAD;   break;
         case OPB_EQ:     return IF_EQ_QUAD;      break;
         case OPB_DIFF:   return IF_DIFF_QUAD;    break;
-        case OPU_NOT:    return OPU_NOT_QUAD;    break;
         case OP_MINUS:   return is_unary ? OPU_MINUS_QUAD : OPB_MINUS_QUAD;
         break;
     }
