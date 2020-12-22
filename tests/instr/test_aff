@@ -14,12 +14,9 @@ function param_test(p1 : int, p2 : int) : int
 
 
 begin
-    g1 := 0;
+    g1 := 1;
     g2 := 2;
-    g3 := g1 < g2;
-    g3 := g1 < 5;
-    g3 := 5 < g1;
-    g3:= 1 < 1;
+    g4 := param_test(g1, g2);
     
     
     (*g3 := param_test(12, 13);*)

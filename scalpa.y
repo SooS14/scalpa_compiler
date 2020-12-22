@@ -55,7 +55,7 @@ void write_main(char * program_name) {
     dprintf(1, "nextquad : %i\n", quad_table.nextquad);
 
     // TODO (Antoine) array in aff and (/read/write ?)
-    // TODO (Simon) - scope of variables in .data -> add in mips "_scope"
+    // TODO (Simon) - scope of variables in .data -> add in mips "_scope" -> OK
     //              - functions
     for (int i = symbol_table.quad_main ; i < quad_table.nextquad ; i++) {
         if (quad_table.quads[i].is_label) {
@@ -78,14 +78,16 @@ void write_main(char * program_name) {
                 case QO_CST:
                     dprintf(fd_out, "\tli $t9, %i\n",
                         quad.op1.const_int);
-                    dprintf(fd_out, "\tsw $t9, %s\n",
-                        symbol_table.symbols[quad.res.var.ptr].ident);
+                    dprintf(fd_out, "\tsw $t9, %s_%i\n",
+                        symbol_table.symbols[quad.res.var.ptr].ident,
+                        symbol_table.symbols[quad.res.var.ptr].scope);
                     break;
                     
                 case QO_TEMP:
-                    dprintf(fd_out, "\tsw $t%i, %s\n",
+                    dprintf(fd_out, "\tsw $t%i, %s_%i\n",
                         quad.op1.temp.ptr,
-                        symbol_table.symbols[quad.res.var.ptr].ident);
+                        symbol_table.symbols[quad.res.var.ptr].ident,
+                        symbol_table.symbols[quad.res.var.ptr].scope);
                     break;
                 }
                 break;
@@ -99,15 +101,17 @@ void write_main(char * program_name) {
                     break;
                 
                 case QO_VAR:
-                        dprintf(fd_out, "\tlw $t%i, %s\n",
+                        dprintf(fd_out, "\tlw $t%i, %s_%i\n",
                             quad.res.temp.ptr,
-                            symbol_table.symbols[quad.op1.var.ptr].ident);
+                            symbol_table.symbols[quad.op1.var.ptr].ident,
+                            symbol_table.symbols[quad.op1.var.ptr].scope);
                     break;
                     
                 case QO_TEMP:
-                    dprintf(fd_out, "\tlw $t%i, %s\n",
+                    dprintf(fd_out, "\tlw $t%i, %s_%i\n",
                         quad.res.temp.ptr,
-                        symbol_table.symbols[quad.op1.var.ptr].ident);
+                        symbol_table.symbols[quad.op1.var.ptr].ident,
+                        symbol_table.symbols[quad.op1.var.ptr].scope);
                     break;
                 }
                 break;
@@ -468,8 +472,9 @@ void write_main(char * program_name) {
         case READ_QUAD:
             dprintf(fd_out, "#%i,    READ_QUAD\n", i);
             dprintf(fd_out, "\tli $v0, 5\n");
-            dprintf(fd_out, "\tsw $v0, %s\n", 
-                symbol_table.symbols[quad.op1.var.ptr].ident);
+            dprintf(fd_out, "\tsw $v0, %s_%i\n", 
+                symbol_table.symbols[quad.op1.var.ptr].ident,
+                symbol_table.symbols[quad.op1.var.ptr].scope);
             dprintf(fd_out, "\tsyscall\n");
             dprintf(fd_out, "\n");
             break;
@@ -537,8 +542,9 @@ void write_main(char * program_name) {
 }
 
 
-/*
+
 void write_data() {
+
     char * buff = malloc(9);
     MCHECK(buff);
     check_snprintf(snprintf(buff, 9, "\n\t.data\n"), 9);
@@ -578,6 +584,7 @@ void write_data() {
             check_snprintf(snprintf(buff, size_buff, "\t%s_%i:\t.word ",
                 symbol_table.symbols[i].ident,
                 symbol_table.symbols[i].scope), size_buff);
+
             for (int j = 0; j < nb_element; j++) {
                 char *buff_cpy = malloc(strlen(buff)+1);
                 MCHECK(buff_cpy);
@@ -592,9 +599,14 @@ void write_data() {
         }
     }
     free(buff);
-}
-*/
 
+    for (int i = 0; i < string_table.last_ident_index; i++) {
+        dprintf(fd_out, "\t__printed_string_%i: .asciiz %s\n",i , 
+            string_table.strings[i]);
+    }
+}
+
+/*
 void write_data() {
     dprintf(fd_out,"\n\t.data\n");
     for (int i = 0; i < symbol_table.last_ident_index; i++)  {
@@ -608,7 +620,7 @@ void write_data() {
             string_table.strings[i]);
     }
 }
-
+*/
 
 %}
 %code requires {
