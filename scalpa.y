@@ -36,33 +36,15 @@ extern int current_line;
 /*                             write spim file                                */
 /* -------------------------------------------------------------------------- */
 
-void write_main(char * program_name) {
-    int size_buff = 40 + strlen(program_name);
-    char * buff = malloc(40 + strlen(program_name));
-    MCHECK(buff);
-    check_snprintf(snprintf(buff, size_buff, "# program : %s\n\t.text\n\t.globl\
- main\nmain:\n", program_name), size_buff);
-    CHECK(write(fd_out, buff, strlen(buff)));
 
-    string_table.table_size = INIT_TABLE_SIZE;
-    string_table.last_ident_index = 0;
-    string_table.strings = malloc(INIT_TABLE_SIZE * sizeof(char *));
-    MCHECK(symbol_table.symbols);
-    struct quad_t quad;
-    int count = 0;
+void write_instr(int i)
+{
+        struct quad_t quad;
+        quad = quad_table.quads[i];
 
-    dprintf(1, "quad_main : %i\n", symbol_table.quad_main);
-    dprintf(1, "nextquad : %i\n", quad_table.nextquad);
-
-    // TODO (Antoine) array in aff and (/read/write ?)
-    // TODO (Simon) - scope of variables in .data -> add in mips "_scope" -> OK
-    //              - functions
-    for (int i = symbol_table.quad_main ; i < quad_table.nextquad ; i++) {
         if (quad_table.quads[i].is_label) {
             dprintf(fd_out, "\n__label_%i:\n", i);
         }
-
-        quad = quad_table.quads[i];
 
         switch(quad.instruction) {
         case GOTO_QUAD :
@@ -407,23 +389,22 @@ void write_main(char * program_name) {
 
         case OPB_POW_QUAD:
             dprintf(fd_out, "#%i,    OPB_POW_QUAD\n", i);
-            count = i;
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                     (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t9, 0\n");
                 dprintf(fd_out, "\tli $t%i, 1\n", 
                     quad.res.temp.ptr);
                 dprintf(fd_out, "__pow_loop_%i: beq $t9, %i, __end_pow_%i\n",
-                    count,
+                    i,
                     quad.op2.const_int,
-                    count);
+                    i);
                 dprintf(fd_out, "\tmulo $t%i, $t%i, $t%i\n",
                     quad.res.temp.ptr,
                     quad.res.temp.ptr,
                     quad.op1.temp.ptr);
                 dprintf(fd_out, "\taddi $t9, $t9, 1\n");
-                dprintf(fd_out, "\tj __pow_loop_%i\n", count);
-                dprintf(fd_out, "__end_pow_%i : li $t9, 0\n", count);
+                dprintf(fd_out, "\tj __pow_loop_%i\n", i);
+                dprintf(fd_out, "__end_pow_%i : li $t9, 0\n", i);
             }
             else if ((quad.op1.quad_op_type == QO_CST) &&
                 (quad.op2.quad_op_type == QO_TEMP)) {
@@ -431,32 +412,32 @@ void write_main(char * program_name) {
                 dprintf(fd_out, "\tli $t%i, 1\n", 
                     quad.res.temp.ptr);
                 dprintf(fd_out, "__pow_loop_%i: beq $t9, $t%i, __end_pow_%i\n",
-                    count,
+                    i,
                     quad.op2.temp.ptr,
-                    count);
+                    i);
                 dprintf(fd_out, "\tmulo $t%i, $t%i, %i\n",
                     quad.res.temp.ptr,
                     quad.res.temp.ptr,
                     quad.op1.const_int);
                 dprintf(fd_out, "\taddi $t9, $t9, 1\n");
-                dprintf(fd_out, "\tj __pow_loop_%i\n", count);
-                dprintf(fd_out, "__end_pow_%i : li $t9, 0\n", count);
+                dprintf(fd_out, "\tj __pow_loop_%i\n", i);
+                dprintf(fd_out, "__end_pow_%i : li $t9, 0\n", i);
             }
             else {
                 dprintf(fd_out, "\tli $t9, 0\n");
                 dprintf(fd_out, "\tli $t%i, 1\n", 
                     quad.res.temp.ptr);
                 dprintf(fd_out, "__pow_loop_%i: beq $t9, $t%i, __end_pow_%i\n",
-                    count,
+                    i,
                     quad.op2.temp.ptr,
-                    count);
+                    i);
                 dprintf(fd_out, "\tmulo $t%i, $t%i, $t%i\n",
                     quad.res.temp.ptr,
                     quad.res.temp.ptr,
                     quad.op1.temp.ptr);
                 dprintf(fd_out, "\taddi $t9, $t9, 1\n");
-                dprintf(fd_out, "\tj __pow_loop_%i\n", count);
-                dprintf(fd_out, "__end_pow_%i : li $t9, 0\n", count);
+                dprintf(fd_out, "\tj __pow_loop_%i\n", i);
+                dprintf(fd_out, "__end_pow_%i : li $t9, 0\n", i);
             }
             dprintf(fd_out, "\n");             
             break;
@@ -516,30 +497,119 @@ void write_main(char * program_name) {
 
         case CALL_QUAD:
             dprintf(fd_out, "#%i,    CALL_QUAD\n", i);
+            dprintf(fd_out, "\tjal __func_label_%s\n", symbol_table.symbols[quad.op1.var.ptr].ident);
+            dprintf(fd_out, "\n");
+
             break;
         case CALL_AFF_QUAD:
             dprintf(fd_out, "#%i,    CALL_AFF_QUAD\n", i);
+            dprintf(fd_out, "\tjal __func_label_%s\n", symbol_table.symbols[quad.op2.var.ptr].ident);
+            dprintf(fd_out, "\tmove $t%i, $v0\n",
+                quad.op1.temp.ptr);
+            dprintf(fd_out, "\n");
             break;
+
         case PARAM_QUAD:
             dprintf(fd_out, "#%i,    PARAM_QUAD\n", i);
+            dprintf(fd_out, "\taddiu $sp, $sp, -4\n");
+            dprintf(fd_out, "\tsw $t%i, 0($sp)\n",
+                quad.op1.temp.ptr);
+            dprintf(fd_out, "\n");
             break;
+
         case RETURN_UNIT_QUAD:
             dprintf(fd_out, "#%i,    RETURN_UNIT_QUAD\n", i);
+            dprintf(fd_out, "\tjr $ra\n");
+            dprintf(fd_out, "\n");
             break;
+
         case RETURN_QUAD:
             dprintf(fd_out, "#%i,    RETURN_QUAD\n", i);
+            dprintf(fd_out, "\tmove $v0, $t%i\n",
+                quad.res.temp.ptr);
+            dprintf(fd_out, "\tjr $ra\n");
+            dprintf(fd_out, "\n");
             break;
+
         case EXIT_QUAD:
             dprintf(fd_out, "#%i,    EXIT_QUAD\n", i);
             dprintf(fd_out, "\tli $v0, 10\n");
             dprintf(fd_out, "\tsyscall\n");
             break;
+    }
+}
+
+
+void write_main(char * program_name) {
+    int size_buff = 40 + strlen(program_name);
+    char * buff = malloc(40 + strlen(program_name));
+    MCHECK(buff);
+    check_snprintf(snprintf(buff, size_buff, "# program : %s\n\t.text\n\t.globl\
+ main\nmain:\n", program_name), size_buff);
+    CHECK(write(fd_out, buff, strlen(buff)));
+
+
+    string_table.table_size = INIT_TABLE_SIZE;
+    string_table.last_ident_index = 0;
+    string_table.strings = malloc(INIT_TABLE_SIZE * sizeof(char *));
+    MCHECK(symbol_table.symbols);
+
+    // TODO (Antoine) array in aff and (/read/write ?)
+    // TODO (Simon) - scope of variables in .data -> add in mips "_scope" -> OK
+    //              - functions -> OK (jusqu'à présent)
+
+    dprintf(1, "quad_main : %i\n", symbol_table.quad_main);
+    dprintf(1, "nextquad : %i\n", quad_table.nextquad);
+
+
+    for (int i = symbol_table.quad_main ; i < quad_table.nextquad ; i++) {
+        write_instr(i);
+    }
+    dprintf(fd_out, "\n");
+    dprintf(fd_out, "\n");
+    free(buff);
+}
+
+
+
+void write_functions()
+{
+    struct symbol_t symbol;
+    int index_quad = 0;
+
+    for (int i = 0; i < symbol_table.table_size; i++)
+    {
+        symbol = symbol_table.symbols[i];
+        if (symbol.var_func_par == FUNC_T)
+        {
+            index_quad = symbol.type.func.index_quad;
+            dprintf(fd_out, "__func_label_%s:\n",symbol.ident);
+            for (int j = 1; j <= symbol.type.func.nb_param; j++)
+            {
+                dprintf(fd_out, "\tlw $t9, 0($sp)\n");
+                dprintf(fd_out, "\tsw $t9, %s_%i\n",
+                    symbol_table.symbols[i+j].ident,
+                    symbol_table.symbols[i+j].scope);
+                dprintf(fd_out, "\taddiu $sp, $sp, 4\n");
+            }
+            dprintf(fd_out, "\n");
+
+            for (int j = index_quad; j < symbol_table.quad_main; j++)
+            {
+                write_instr(j);
+
+                if ((quad_table.quads[j].instruction == RETURN_UNIT_QUAD) ||
+                    (quad_table.quads[j].instruction == RETURN_QUAD))
+                {
+                    break;
+                }
+            }
+           dprintf(fd_out, "\n");
+            
         }
     }
-
-    free(buff);
-
 }
+
 
 
 
@@ -605,6 +675,8 @@ void write_data() {
             string_table.strings[i]);
     }
 }
+
+
 
 /*
 void write_data() {
@@ -686,7 +758,7 @@ program :
         add_exit();
         complete_labels();
         write_main($2);
-        // TODO write_functions();
+        write_functions();
         write_data();
         free($2);
         }

@@ -1,10 +1,9 @@
-(* test des affectation *)
 program maxi
     var g1,g2 : int;
     var g3 : bool;
     var g4 : int;
+    
 
-(* test avec plusieurs arguments *)
 function param_test(p1 : int, p2 : int) : int
    var v1 : int;
    begin
@@ -12,13 +11,17 @@ function param_test(p1 : int, p2 : int) : int
    	return v1;
    end;
 
+function param_test2(p1 : int, p2 : int) : int
+   var v1 : int;
+   begin
+	v1 := p1 + p2;
+   	return v1;
+   end;
 
 begin
     g1 := 1;
     g2 := 2;
     g4 := param_test(g1, g2);
-    
-    
-    (*g3 := param_test(12, 13);*)
+    param_test2(g1, g2);
 end
 
