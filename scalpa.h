@@ -45,6 +45,9 @@ struct lvalue_t {
     // temp ptr to index of the element in the array 
     // equivalent of depl in the lecture
     int ptr_to_index;
+    // type of lvalue -> redondant with expr_t but for array we need this, 
+    // because array identifier is sorted in a temp.
+    enum type_t type;
 };
 
 struct expr_t {

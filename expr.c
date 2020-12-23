@@ -176,6 +176,10 @@ int get_index_array (int (*range_array)[2],
         res_expr.temp.ptr_to_index = 0;
         gencode (AFF_QUAD, old_expr, old_expr, res_expr);
     }
-    // TODO mult by nbw ?
+    struct expr_t nbw;
+    nbw.quad_op_type = QO_CST;
+    nbw.type = INT;
+    nbw.const_int = 4;
+    gencode (OPB_STAR_QUAD, res_expr, nbw, res_expr);
     return temp_ptr;
 }
