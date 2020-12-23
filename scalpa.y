@@ -1000,10 +1000,6 @@ instr :
         if (cur_symbol.var_func_par != FUNC_T) {
             handle_error("invalide use of [%s], [%s] isn't a function", $1, $1);
         }
-        if (cur_symbol.type.func.atomic_type == VOID_A) {
-            handle_error("function [%s] is of unit type. Can't be called "
-                "inside an expression.", $1);
-        }
         int nb_parameters = list_len($3);
         if (cur_symbol.type.func.nb_param != nb_parameters) {
             handle_error("arguments given in call of function [%s] are "
@@ -1665,6 +1661,7 @@ expr :
         array_expr.temp.symbol_type = ARRAY_TYPE;
         array_expr.is_array = 1;
         array_expr.index_symbol_table = ptr;
+        array_expr.type = array_ident.type;
         gencode (AFF_QUAD, array_ident, array_ident, array_expr);
 
         array_expr.is_array = 0;
