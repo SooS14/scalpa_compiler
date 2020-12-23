@@ -134,6 +134,19 @@ int get_index_array (int (*range_array)[2],
         handle_error("bool or string can't serve as element indexation"
             "in an array, only integers allowed.");
     }
+    // add offset for dim not starting at 0
+    if (range_array[0][0] != 0) {
+        if (expr_temp->quad_op_type == QO_CST) {
+            expr_temp->const_int = expr_temp->const_int - range_array[0][0];
+        }
+        else {
+            struct expr_t offset;
+            offset.quad_op_type = QO_CST;
+            offset.type = INT;
+            offset.const_int = - range_array[0][0];
+            gencode (OPB_PLUS_QUAD, *expr_temp, offset, *expr_temp);
+        }
+    }
     struct expr_t old_expr, i_expr, n_expr, res_expr, res_expr2;
     copy_expr_t(&old_expr, expr_temp);
     int temp_ptr = newtemp(0);
@@ -143,6 +156,19 @@ int get_index_array (int (*range_array)[2],
         if (expr_temp->type != INT) {
             handle_error("bool or string can't serve as element indexation "
                 "in an array, only integers allowed.");
+        }
+        // add offset for dim not starting at 0
+        if (range_array[i][0] != 0) {
+            if (expr_temp->quad_op_type == QO_CST) {
+                expr_temp->const_int = expr_temp->const_int - range_array[i][0];
+            }
+            else {
+                struct expr_t offset;
+                offset.quad_op_type = QO_CST;
+                offset.type = INT;
+                offset.const_int = - range_array[i][0];
+                gencode (OPB_PLUS_QUAD, *expr_temp, offset, *expr_temp);
+            }
         }
         copy_expr_t(&i_expr, expr_temp);
 
