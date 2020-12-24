@@ -546,9 +546,6 @@ void write_main(char * program_name) {
     string_table.strings = malloc(INIT_TABLE_SIZE * sizeof(char *));
     MCHECK(symbol_table.symbols);
 
-    dprintf(1, "DEBUG : quad_main : %i\n", symbol_table.quad_main);
-    dprintf(1, "DEBUG : nextquad : %i\n", quad_table.nextquad);
-
     for (int i = symbol_table.quad_main ; i < quad_table.nextquad ; i++) {
         dprintf(fd_out, "\n");
         write_instr(i);
@@ -563,15 +560,12 @@ void write_functions() {
         if (symbol.var_func_par == FUNC_T) {
             index_quad = symbol.type.func.index_quad;
             dprintf(fd_out, "__func_label_%s:\n",symbol.ident);
-            for (int j = symbol.type.func.nb_param; j > 0 ; j--) 
-            {
+            for (int j = symbol.type.func.nb_param; j > 0 ; j--)  {
                 struct param_t parame = symbol_table.symbols[i+j].type.param;
-                if (parame.typename->symbol_type == ARRAY_TYPE)
-                {
-                    int nb_element = 0;
-                    for (int j = 0; j < parame.typename->len_range_list; j++) 
-                    {
-                        nb_element += (parame.typename->range_array[j][1] 
+                if (parame.typename->symbol_type == ARRAY_TYPE) {
+                    int nb_element = 1;
+                    for (int j = 0; j < parame.typename->len_range_list; j++) {
+                        nb_element *= (parame.typename->range_array[j][1] 
                             - parame.typename->range_array[j][0] + 1); 
                     }
                     dprintf(fd_out, "\tlw $t9, 0($sp)\n");
@@ -579,13 +573,20 @@ void write_functions() {
                         symbol_table.symbols[i+j].ident,
                         symbol_table.symbols[i+j].scope);
 
-                    for (int k = 0; k < nb_element; k++)
-                    {
-                        dprintf(fd_out, "\tlw $t7, 0($t9)\n");
-                        dprintf(fd_out, "\tsw $t7, ($t8) \n");
-                        dprintf(fd_out, "\taddiu $t9, $t9, 4\n");
-                        dprintf(fd_out, "\taddiu $t8, $t8, 4\n");
-                    }
+                    // loop to copy array
+                    dprintf(fd_out, "\tli $t0, %i\n", nb_element);
+                    dprintf(fd_out, "\tli $t1, 0\n");
+                    dprintf(fd_out, "\t__label_%s_%i:\n", symbol.ident, j);
+                    dprintf(fd_out, "\tbgt $t1, $t0, __label_%s_%i_end\n",
+                        symbol.ident, j);
+                    dprintf(fd_out, "\tlw $t7, 0($t9)\n");
+                    dprintf(fd_out, "\tsw $t7, ($t8) \n");
+                    dprintf(fd_out, "\taddiu $t9, $t9, 4\n");
+                    dprintf(fd_out, "\taddiu $t8, $t8, 4\n");
+                    dprintf(fd_out, "\taddi $t1, $t1, 1\n");
+                    dprintf(fd_out, "\tj __label_%s_%i\n", symbol.ident, j);
+                    dprintf(fd_out, "\t__label_%s_%i_end:\n", symbol.ident, j);
+
                     dprintf(fd_out, "\taddiu $sp, $sp, 4\n");
                 }
                 else
@@ -609,78 +610,7 @@ void write_functions() {
     }
 }
 
-
-
 void write_data() {
-    char * buff = malloc(9);
-    MCHECK(buff);
-    check_snprintf(snprintf(buff, 9, "\n\t.data\n"), 9);
-    CHECK(write(fd_out, buff, strlen(buff)));
-    for (int i = 0; i < symbol_table.last_ident_index; i++) {
-        struct typename_t *cur_typename;
-        if (symbol_table.symbols[i].var_func_par == VAR_T) {
-            cur_typename = symbol_table.symbols[i].type.var.typename;
-        }
-        else if (symbol_table.symbols[i].var_func_par == PARAM_T) {
-            cur_typename = symbol_table.symbols[i].type.param.typename;
-        }
-        else {
-            continue;
-        }
-        int n = (symbol_table.symbols[i].scope == 0) ? 
-            1 : floor(log10(symbol_table.symbols[i].scope)) + 1;
-        if (cur_typename->symbol_type == ATOMIC_TYPE) {
-            int size_buff = 13 + n + symbol_table.symbols[i].ident_length;
-            buff = realloc(buff, size_buff);
-            MCHECK(buff);
-            check_snprintf(snprintf(buff, size_buff, "\t%s_%i:\t.word 0\n",
-                symbol_table.symbols[i].ident,
-                symbol_table.symbols[i].scope), size_buff);
-            CHECK(write(fd_out, buff, strlen(buff)));
-        }
-        else {
-            int nb_element = 0;
-            for (int j = 0; j < cur_typename->len_range_list; j++) {
-                nb_element += (cur_typename->range_array[j][1] 
-                    - cur_typename->range_array[j][0] + 1); 
-            }
-            int size_buff = 12 + n + symbol_table.symbols[i].ident_length 
-                + 3 * nb_element;
-            buff = realloc(buff, size_buff);
-            MCHECK(buff);
-            check_snprintf(snprintf(buff, size_buff, "\t%s_%i:\t.word ",
-                symbol_table.symbols[i].ident,
-                symbol_table.symbols[i].scope), size_buff);
-
-            for (int j = 0; j < nb_element; j++) {
-                char *buff_cpy = malloc(strlen(buff)+1);
-                MCHECK(buff_cpy);
-                buff_cpy = strncpy(buff_cpy, buff, strlen(buff)+1);
-                check_snprintf(snprintf(buff, size_buff, "%s0, ",
-                    buff_cpy), size_buff);
-                free(buff_cpy);
-            }
-            buff[strlen(buff) - 2] = '\n';
-            buff[strlen(buff) - 1] = '\0';
-            CHECK(write(fd_out, buff, strlen(buff)));
-        }
-    }
-    free(buff);
-
-    for (int i = 0; i < string_table.last_ident_index; i++) {
-        dprintf(fd_out, "\t__printed_string_%i: .asciiz %s\n",i , 
-            string_table.strings[i]);
-    }
-}
-
-
-
-//error : exprlist and rangelist have different size.
-//Compiler stop at line [20].
-// tab double dimensions -> cf test_tab
-/*
-void write_data()
-{
     dprintf(fd_out, "\n\t.data\n");
     for (int i = 0; i < symbol_table.last_ident_index; i++) {
         struct typename_t *cur_typename;
@@ -694,23 +624,11 @@ void write_data()
             continue;
         }
         if (cur_typename->symbol_type == ATOMIC_TYPE) {
-            if (symbol_table.symbols[i].type.var.initialiazed != -1)
-            {
-                dprintf(fd_out, "\t%s_%i:\t.word %i\n",
-                    symbol_table.symbols[i].ident,
-                    symbol_table.symbols[i].scope,
-                    symbol_table.symbols[i].type.var.initialiazed);
-            }
-            else
-            {
-                dprintf(fd_out, "\t%s_%i:\t.word 0\n",
-                    symbol_table.symbols[i].ident,
-                    symbol_table.symbols[i].scope);                
-            }
-
+            dprintf(fd_out, "\t%s_%i:\t.word 0\n",
+                symbol_table.symbols[i].ident,
+                symbol_table.symbols[i].scope);
         }
-        else
-        {
+        else {
             int nb_element = 1;
             for (int j = 0; j < cur_typename->len_range_list; j++) {
                 nb_element *= (cur_typename->range_array[j][1] 
@@ -719,12 +637,10 @@ void write_data()
             dprintf(fd_out, "\t%s_%i:\t.word ",
                 symbol_table.symbols[i].ident,
                 symbol_table.symbols[i].scope);
-
-            for (int j = 0; j < nb_element-1; j++) {
-                dprintf(fd_out, "o, ");
+            for (int j = 0; j < nb_element -1; j++) {
+                dprintf(fd_out, "0, ");
             }
-            dprintf(fd_out, "o");
-            dprintf(fd_out, "\n");
+            dprintf(fd_out, "0\n");
         }
     }
     for (int i = 0; i < string_table.last_ident_index; i++) {
@@ -732,8 +648,6 @@ void write_data()
             string_table.strings[i]);
     }
 }
-*/
-
 
 %}
 %code requires {
@@ -1954,7 +1868,6 @@ IMPORTANT
  - TODO put grammar "instruction" in function in a other file -S ?
  - TODO do an error test for each handle_error -> S
  - TODO documenatation and test files -> S
- - TODO verif array quads -> A
 
 OPTIONAL
 

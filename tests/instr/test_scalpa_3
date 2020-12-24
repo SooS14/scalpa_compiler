@@ -1,9 +1,9 @@
 (* Ceci est un exemple de code SCALPA *)
 program maxi
     var i,j,count,maximum : int;
-    var val : array[-4..4, 0..10] of int
+    var val : array[-4..4, 0..3] of int
 
-function maxtab(t : array[-4..4, 0..10] of int) : int
+function maxtab(t : array[-4..4, 0..3] of int) : int
     var i2,j2,max : int
     begin
         i2 := -4;
@@ -13,7 +13,7 @@ function maxtab(t : array[-4..4, 0..10] of int) : int
         while i2 <= 4 do
         begin
             j2 := 0;
-            while j2 <= 10 do
+            while j2 <= 3 do
             begin
                 if max < t[i2,j2] then 
                 begin 
@@ -36,7 +36,7 @@ begin
     while i <= 4 do
     begin
         j := 0;
-        while j <= 10 do
+        while j <= 3 do
         begin
             write "[";
             write i;

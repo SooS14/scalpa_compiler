@@ -42,7 +42,6 @@ begin
         i := i+1
     end;
     maximum := maxtab(val);
-    write "soos\n";
     write "\n";
     write "maximum = ";
     write maximum;
