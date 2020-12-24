@@ -10,7 +10,7 @@ begin
     g3 := 4 + 5;
     g4 := g1 + g2 + g3;
     a := not (1 < g4) ;
-    if (a) then
+    if (true) then
     begin
         write "hello";
     end;

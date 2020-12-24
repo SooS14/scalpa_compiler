@@ -1,27 +1,44 @@
 program maxi
-    var g1,g2 : int;
-    var g3 : bool;
-    var g4 : int;
+	var val1 : array[0..10] of int;
+    var val2 : array[-4..4, 0..10] of int;
     
 
-function param_test(p1 : int, p2 : int) : int
-   var v1 : int;
-   begin
-	v1 := p1 + p2;
-   	return v1;
-   end;
+function maxtab1(t : array[0..10] of int) : int
+    var i,max : int;
+    begin
+        i := 0;
+        max := t[0];
+        while i <= 10 do
+        begin
+		    if t[i] > max then max := t[i];
+	 	    i := i + 1;
+        end;
+        return max;
+    end;
+   
+   
+ 
+function maxtab2(t : array[-4..4, 0..10] of int) : int
+    var i2,j2,maximum : int
+    begin
+        i2 := -4;
+        j2 := 0;
+        maximum := t[-4,0];
+        while i2 <= 4 do
+        begin
+            while j2 <= 10 do
+            begin
+                if t[i2,j2] > maximum then maximum := t[i2,j2];
+                j2 := j2+1
+            end;
+            i2 := i2+1;
+        end;
+        return maximum
+    end;
 
-function param_test2(p1 : int, p2 : int) : int
-   var v1 : int;
-   begin
-	v1 := p1 + p2;
-   	return v1;
-   end;
 
 begin
-    g1 := 1;
-    g2 := 2;
-    g4 := param_test(g1, g2);
-    param_test2(g1, g2);
+    maxtab1(val1);
+    maxtab2(val2);
 end
 

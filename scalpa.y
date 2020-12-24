@@ -520,19 +520,19 @@ void write_instr(int i) {
 
         case RETURN_UNIT_QUAD:
             dprintf(fd_out, "#%i,    RETURN_UNIT_QUAD\n", i);
-            dprintf(fd_out, "\tjr $ra\n");
+            dprintf(fd_out, "\tjr $ra\n\n");
             break;
 
         case RETURN_QUAD:
             dprintf(fd_out, "#%i,    RETURN_QUAD\n", i);
             dprintf(fd_out, "\tmove $v0, $t%i\n", quad.res.temp.ptr);
-            dprintf(fd_out, "\tjr $ra\n");
+            dprintf(fd_out, "\tjr $ra\n\n");
             break;
 
         case EXIT_QUAD:
             dprintf(fd_out, "#%i,    EXIT_QUAD\n", i);
             dprintf(fd_out, "\tli $v0, 10\n");
-            dprintf(fd_out, "\tsyscall\n");
+            dprintf(fd_out, "\tsyscall\n\n");
             break;
     }
 }
@@ -563,12 +563,39 @@ void write_functions() {
         if (symbol.var_func_par == FUNC_T) {
             index_quad = symbol.type.func.index_quad;
             dprintf(fd_out, "__func_label_%s:\n",symbol.ident);
-            for (int j = 1; j <= symbol.type.func.nb_param; j++) {
-                dprintf(fd_out, "\tlw $t9, 0($sp)\n");
-                dprintf(fd_out, "\tsw $t9, %s_%i\n",
-                    symbol_table.symbols[i+j].ident,
-                    symbol_table.symbols[i+j].scope);
-                dprintf(fd_out, "\taddiu $sp, $sp, 4\n");
+            for (int j = symbol.type.func.nb_param; j > 0 ; j--) 
+            {
+                struct param_t parame = symbol_table.symbols[i+j].type.param;
+                if (parame.typename->symbol_type == ARRAY_TYPE)
+                {
+                    int nb_element = 0;
+                    for (int j = 0; j < parame.typename->len_range_list; j++) 
+                    {
+                        nb_element += (parame.typename->range_array[j][1] 
+                            - parame.typename->range_array[j][0] + 1); 
+                    }
+                    dprintf(fd_out, "\tlw $t9, 0($sp)\n");
+                    dprintf(fd_out, "\tla $t8, %s_%i\n",
+                        symbol_table.symbols[i+j].ident,
+                        symbol_table.symbols[i+j].scope);
+
+                    for (int k = 0; k < nb_element; k++)
+                    {
+                        dprintf(fd_out, "\tlw $t7, 0($t9)\n");
+                        dprintf(fd_out, "\tsw $t7, ($t8) \n");
+                        dprintf(fd_out, "\taddiu $t9, $t9, 4\n");
+                        dprintf(fd_out, "\taddiu $t8, $t8, 4\n");
+                    }
+                    dprintf(fd_out, "\taddiu $sp, $sp, 4\n");
+                }
+                else
+                {
+                    dprintf(fd_out, "\tlw $t9, 0($sp)\n");
+                    dprintf(fd_out, "\tsw $t9, %s_%i\n",
+                        symbol_table.symbols[i+j].ident,
+                        symbol_table.symbols[i+j].scope);
+                    dprintf(fd_out, "\taddiu $sp, $sp, 4\n");
+                }
             }
             for (int j = index_quad; j < symbol_table.quad_main; j++) {
                 write_instr(j);
@@ -576,10 +603,13 @@ void write_functions() {
                     (quad_table.quads[j].instruction == RETURN_QUAD)) {
                     break;
                 }
+                dprintf(fd_out, "\n");
             }
         }
     }
 }
+
+
 
 void write_data() {
     char * buff = malloc(9);
@@ -609,9 +639,9 @@ void write_data() {
             CHECK(write(fd_out, buff, strlen(buff)));
         }
         else {
-            int nb_element = 1;
+            int nb_element = 0;
             for (int j = 0; j < cur_typename->len_range_list; j++) {
-                nb_element *= (cur_typename->range_array[j][1] 
+                nb_element += (cur_typename->range_array[j][1] 
                     - cur_typename->range_array[j][0] + 1); 
             }
             int size_buff = 12 + n + symbol_table.symbols[i].ident_length 
@@ -642,6 +672,68 @@ void write_data() {
             string_table.strings[i]);
     }
 }
+
+
+
+//error : exprlist and rangelist have different size.
+//Compiler stop at line [20].
+// tab double dimensions -> cf test_tab
+/*
+void write_data()
+{
+    dprintf(fd_out, "\n\t.data\n");
+    for (int i = 0; i < symbol_table.last_ident_index; i++) {
+        struct typename_t *cur_typename;
+        if (symbol_table.symbols[i].var_func_par == VAR_T) {
+            cur_typename = symbol_table.symbols[i].type.var.typename;
+        }
+        else if (symbol_table.symbols[i].var_func_par == PARAM_T) {
+            cur_typename = symbol_table.symbols[i].type.param.typename;
+        }
+        else {
+            continue;
+        }
+        if (cur_typename->symbol_type == ATOMIC_TYPE) {
+            if (symbol_table.symbols[i].type.var.initialiazed != -1)
+            {
+                dprintf(fd_out, "\t%s_%i:\t.word %i\n",
+                    symbol_table.symbols[i].ident,
+                    symbol_table.symbols[i].scope,
+                    symbol_table.symbols[i].type.var.initialiazed);
+            }
+            else
+            {
+                dprintf(fd_out, "\t%s_%i:\t.word 0\n",
+                    symbol_table.symbols[i].ident,
+                    symbol_table.symbols[i].scope);                
+            }
+
+        }
+        else
+        {
+            int nb_element = 1;
+            for (int j = 0; j < cur_typename->len_range_list; j++) {
+                nb_element *= (cur_typename->range_array[j][1] 
+                    - cur_typename->range_array[j][0] + 1); 
+            }
+            dprintf(fd_out, "\t%s_%i:\t.word ",
+                symbol_table.symbols[i].ident,
+                symbol_table.symbols[i].scope);
+
+            for (int j = 0; j < nb_element-1; j++) {
+                dprintf(fd_out, "o, ");
+            }
+            dprintf(fd_out, "o");
+            dprintf(fd_out, "\n");
+        }
+    }
+    for (int i = 0; i < string_table.last_ident_index; i++) {
+        dprintf(fd_out, "\t__printed_string_%i: .asciiz %s\n",i , 
+            string_table.strings[i]);
+    }
+}
+*/
+
 
 %}
 %code requires {
