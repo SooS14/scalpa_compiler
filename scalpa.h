@@ -96,7 +96,8 @@ struct param_t {
 };
 
 struct function_t {
-    int index_quad;
+    int quad_start;
+    int quad_end;
     int nb_param; // number of paramater for a function
     int *index_param; // array of index of parameter of a function
     enum atomic_type_t atomic_type; // atomic type : int / bool / unit

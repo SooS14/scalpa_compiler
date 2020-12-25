@@ -15,6 +15,8 @@
 #include "quad.h"
 #include "expr.h"
 
+#define DEBUG 1
+
 struct symbol_table_t symbol_table;
 struct quad_table_t quad_table;
 struct string_table_t string_table;
@@ -22,7 +24,7 @@ struct string_table_t string_table;
 int fd_out;
 
 int scope_function = 0; // used to check if the return is general
-int is_returned = 0; // used to check if a function as a return
+int is_returned = 0;    // used to check if a function as a return
 
 int yylex(void);
 
@@ -43,15 +45,60 @@ void write_instr(int i) {
         if (quad_table.quads[i].is_label) {
             dprintf(fd_out, "__label_%i:\n", i);
         }
-
+        if (DEBUG) {
+            switch(quad.instruction) {
+            case GOTO_QUAD :
+                dprintf(fd_out, "#%i,\tGOTO_QUAD\n", i);        break;
+            case AFF_QUAD :
+                dprintf(fd_out, "#%i,\tAFF_QUAD\n", i);         break;
+            case IF_QUAD :
+                dprintf(fd_out, "#%i,\tIF_QUAD\n", i);          break;
+            case IF_GT_QUAD :
+                dprintf(fd_out, "#%i,\tIF_GT_QUAD\n", i);       break;
+            case IF_LT_EQ_QUAD :
+                dprintf(fd_out, "#%i,\tIF_LT_EQ_QUAD\n", i);    break;
+            case IF_GT_EQ_QUAD :
+                dprintf(fd_out, "#%i,\tIF_GT_EQ_QUAD\n", i);    break;
+            case IF_EQ_QUAD :
+                dprintf(fd_out, "#%i,\tIF_EQ_QUAD\n", i);       break;
+            case IF_DIFF_QUAD :
+                dprintf(fd_out, "#%i,\tIF_DIFF_QUAD\n", i);     break;
+            case OPB_PLUS_QUAD:
+                dprintf(fd_out, "#%i,\tOPB_PLUS_QUAD\n", i);    break;
+            case OPB_MINUS_QUAD:
+                dprintf(fd_out, "#%i,\tOPB_MINUS_QUAD\n", i);   break;
+            case OPB_STAR_QUAD:
+                dprintf(fd_out, "#%i,\tOPB_STAR_QUAD\n", i);    break;
+            case OPB_DIVIDE_QUAD:
+                dprintf(fd_out, "#%i,\tOPB_DIVIDE_QUAD\n", i);  break;
+            case OPB_POW_QUAD:
+                dprintf(fd_out, "#%i,\tOPB_POW_QUAD\n", i);     break;
+            case OPU_MINUS_QUAD:
+                dprintf(fd_out, "#%i,\tOPU_MINUS_QUAD\n", i);   break;
+            case READ_QUAD:
+                dprintf(fd_out, "#%i,\tREAD_QUAD\n", i);        break;
+            case WRITE_QUAD:
+                dprintf(fd_out, "#%i,\tWRITE_QUAD\n", i);       break;
+            case CALL_QUAD:
+                dprintf(fd_out, "#%i,\tCALL_QUAD\n", i);        break;
+            case CALL_AFF_QUAD:
+                dprintf(fd_out, "#%i,\tCALL_AFF_QUAD\n", i);    break;
+            case PARAM_QUAD:
+                dprintf(fd_out, "#%i,\tPARAM_QUAD\n", i);       break;
+            case RETURN_UNIT_QUAD: 
+                dprintf(fd_out, "#%i,\tRETURN_UNIT_QUAD\n", i); break;
+            case RETURN_QUAD: 
+                dprintf(fd_out, "#%i,\tRETURN_QUAD\n", i);      break;
+            case EXIT_QUAD: 
+                dprintf(fd_out, "#%i,\tEXIT_QUAD\n", i);        break;
+            }
+        }
         switch(quad.instruction) {
         case GOTO_QUAD :
-            dprintf(fd_out, "#%i,    GOTO_QUAD\n", i);
             dprintf(fd_out, "\tj __label_%i\n",quad_table.quads[i].target);
             break;
         
         case AFF_QUAD :
-            dprintf(fd_out, "#%i,    AFF_QUAD\n", i);
             if (quad.op1.quad_op_type == QO_VAR && 
                 quad.op1.is_array) {
                 dprintf(fd_out, "\tla $t%i, %s_%i\n",
@@ -139,7 +186,6 @@ void write_instr(int i) {
             break;
         
         case IF_QUAD :
-            dprintf(fd_out, "#%i,    IF_QUAD\n", i);
             if (quad.op1.quad_op_type == QO_CST) {
                 dprintf(fd_out, "\tli $t9, 1\n");
                 dprintf(fd_out, "\tli $t8, %i\n", quad.op1.const_int);
@@ -155,7 +201,6 @@ void write_instr(int i) {
             break;
         
         case IF_LT_QUAD :
-            dprintf(fd_out, "#%i,    IF_LT_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t9, %i\n", quad.op2.const_int);
@@ -179,7 +224,6 @@ void write_instr(int i) {
             break;
         
         case IF_GT_QUAD :
-            dprintf(fd_out, "#%i,    IF_GT_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t9, %i\n", quad.op2.const_int);
@@ -203,7 +247,6 @@ void write_instr(int i) {
             break;
         
         case IF_LT_EQ_QUAD :
-            dprintf(fd_out, "#%i,    IF_LT_EQ_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t9, %i\n", quad.op2.const_int);
@@ -227,7 +270,6 @@ void write_instr(int i) {
             break;
         
         case IF_GT_EQ_QUAD :
-            dprintf(fd_out, "#%i,    IF_GT_EQ_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t9, %i\n", quad.op2.const_int);
@@ -251,7 +293,6 @@ void write_instr(int i) {
             break;
         
         case IF_EQ_QUAD :
-            dprintf(fd_out, "#%i,    IF_EQ_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t9, %i\n", quad.op2.const_int);
@@ -275,7 +316,6 @@ void write_instr(int i) {
             break;
         
         case IF_DIFF_QUAD :
-            dprintf(fd_out, "#%i,    IF_DIFF_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t9, %i\n", quad.op2.const_int);
@@ -299,7 +339,6 @@ void write_instr(int i) {
             break;
         
         case OPB_PLUS_QUAD:
-            dprintf(fd_out, "#%i,    OPB_PLUS_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\taddi $t%i, $t%i, %i\n",
@@ -323,7 +362,6 @@ void write_instr(int i) {
             break;
 
         case OPB_MINUS_QUAD:
-            dprintf(fd_out, "#%i,    OPB_MINUS_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t9, %i\n", quad.op2.const_int);
@@ -347,7 +385,6 @@ void write_instr(int i) {
             break;
 
         case OPB_STAR_QUAD:
-            dprintf(fd_out, "#%i,    OPB_STAR_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_CST) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t8, %i\n", quad.op1.const_int);
@@ -377,7 +414,6 @@ void write_instr(int i) {
             break;
 
         case OPB_DIVIDE_QUAD:
-            dprintf(fd_out, "#%i,    OPB_DIVIDE_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t9, %i\n", quad.op2.const_int);
@@ -401,7 +437,6 @@ void write_instr(int i) {
             break;
 
         case OPB_POW_QUAD:
-            dprintf(fd_out, "#%i,    OPB_POW_QUAD\n", i);
             if ((quad.op1.quad_op_type == QO_TEMP) && 
                 (quad.op2.quad_op_type == QO_CST)) {
                 dprintf(fd_out, "\tli $t9, 0\n");
@@ -446,14 +481,12 @@ void write_instr(int i) {
             break;
         
         case OPU_MINUS_QUAD:
-            dprintf(fd_out, "#%i,    OPU_MINUS_QUAD\n", i);
             dprintf(fd_out, "\tneg $t%i, $t%i\n",
                 quad.res.temp.ptr,
                 quad.op1.temp.ptr);
             break;
         
         case READ_QUAD:
-            dprintf(fd_out, "#%i,    READ_QUAD\n", i);
             if (quad.op1.quad_op_type == QO_TEMP) {
                 dprintf(fd_out, "\tli $v0, 5\n");
                 dprintf(fd_out, "\tsyscall\n");
@@ -469,7 +502,6 @@ void write_instr(int i) {
             break;
         
         case WRITE_QUAD:
-            dprintf(fd_out, "#%i,    WRITE_QUAD\n", i);
             if (quad.op1.quad_op_type == QO_TEMP) {
                 dprintf(fd_out, "\tli $v0, 1\n");
                 dprintf(fd_out, "\tmove $a0, $t%i\n", quad.op1.temp.ptr);
@@ -501,36 +533,30 @@ void write_instr(int i) {
             break;
 
         case CALL_QUAD:
-            dprintf(fd_out, "#%i,    CALL_QUAD\n", i);
             dprintf(fd_out, "\tjal __func_label_%s\n", 
                 symbol_table.symbols[quad.op1.var.ptr].ident);
             break;
         case CALL_AFF_QUAD:
-            dprintf(fd_out, "#%i,    CALL_AFF_QUAD\n", i);
             dprintf(fd_out, "\tjal __func_label_%s\n", 
                 symbol_table.symbols[quad.op2.var.ptr].ident);
             dprintf(fd_out, "\tmove $t%i, $v0\n", quad.op1.temp.ptr);
             break;
 
         case PARAM_QUAD:
-            dprintf(fd_out, "#%i,    PARAM_QUAD\n", i);
             dprintf(fd_out, "\taddiu $sp, $sp, -4\n");
             dprintf(fd_out, "\tsw $t%i, 0($sp)\n", quad.op1.temp.ptr);
             break;
 
         case RETURN_UNIT_QUAD:
-            dprintf(fd_out, "#%i,    RETURN_UNIT_QUAD\n", i);
             dprintf(fd_out, "\tjr $ra\n\n");
             break;
 
         case RETURN_QUAD:
-            dprintf(fd_out, "#%i,    RETURN_QUAD\n", i);
             dprintf(fd_out, "\tmove $v0, $t%i\n", quad.res.temp.ptr);
             dprintf(fd_out, "\tjr $ra\n\n");
             break;
 
         case EXIT_QUAD:
-            dprintf(fd_out, "#%i,    EXIT_QUAD\n", i);
             dprintf(fd_out, "\tli $v0, 10\n");
             dprintf(fd_out, "\tsyscall\n\n");
             break;
@@ -554,11 +580,13 @@ void write_main(char * program_name) {
 
 void write_functions() {
     struct symbol_t symbol;
-    int index_quad = 0;
+    int quad_start = 0;
+    int quad_end = 0;
     for (int i = 0; i < symbol_table.last_ident_index; i++) {
         symbol = symbol_table.symbols[i];
         if (symbol.var_func_par == FUNC_T) {
-            index_quad = symbol.type.func.index_quad;
+            quad_start = symbol.type.func.quad_start;
+            quad_end = symbol.type.func.quad_end;
             dprintf(fd_out, "__func_label_%s:\n",symbol.ident);
             for (int j = symbol.type.func.nb_param; j > 0 ; j--)  {
                 struct param_t parame = symbol_table.symbols[i+j].type.param;
@@ -589,8 +617,7 @@ void write_functions() {
 
                     dprintf(fd_out, "\taddiu $sp, $sp, 4\n");
                 }
-                else
-                {
+                else {
                     dprintf(fd_out, "\tlw $t9, 0($sp)\n");
                     dprintf(fd_out, "\tsw $t9, %s_%i\n",
                         symbol_table.symbols[i+j].ident,
@@ -598,12 +625,8 @@ void write_functions() {
                     dprintf(fd_out, "\taddiu $sp, $sp, 4\n");
                 }
             }
-            for (int j = index_quad; j < symbol_table.quad_main; j++) {
+            for (int j = quad_start; j <= quad_end; j++) {
                 write_instr(j);
-                if ((quad_table.quads[j].instruction == RETURN_UNIT_QUAD) ||
-                    (quad_table.quads[j].instruction == RETURN_QUAD)) {
-                    break;
-                }
                 dprintf(fd_out, "\n");
             }
         }
@@ -815,11 +838,17 @@ fundecl : FUNCTION IDENT '(' parlist ')' ':' atomictype vardecllist {
         if (!is_returned && $7 != VOID_A) {
             handle_error("no return in function [%s]", $2);
         }
+        int ptr = is_symbol_in_table($2, 0);
+        symbol_table.symbols[ptr].type.func.quad_end = $11;
         if (!is_returned) {
+            symbol_table.symbols[ptr].type.func.quad_end ++;
             struct expr_t res;
             gencode (RETURN_UNIT_QUAD, res, res, res);
+            complete_quad_list($10, $11+1);
         }
-        complete_quad_list($10, $11);
+        else {
+            complete_quad_list($10, $11);
+        }
         free_quad_list($10);
         newtemp(1);
         }
@@ -966,7 +995,13 @@ instr :
         if (scope_function == 1) {
             is_returned = 1;
         }
-        if ($2.type == BOOL) {
+        if ($2.quad_op_type == QO_TEMP) {
+            $2.temp.symbol_type = ATOMIC_TYPE;
+        }
+        else if ($2.quad_op_type == QO_VAR) {
+            $2.var.symbol_type = ATOMIC_TYPE;
+        }
+        if ($2.type == BOOL && $2.quad_op_type != QO_CST) {
             struct expr_t temp;
             temp.is_array = 0;
             temp.quad_op_type = QO_CST;
@@ -980,6 +1015,12 @@ instr :
             complete_quad_list($2.false, quad_table.nextquad);
             free_quad_list($2.false);
             gencode (AFF_QUAD, temp, temp, $2);
+        }
+        if ($2.type == BOOL && $2.quad_op_type == QO_CST) {
+            complete_quad_list($2.true, quad_table.nextquad);
+            free_quad_list($2.true);
+            complete_quad_list($2.false, quad_table.nextquad);
+            free_quad_list($2.false);
         }
         gencode (RETURN_QUAD, $2, $2, $2);
         $$ = NULL;
@@ -1849,7 +1890,9 @@ int main (int argc, char * argv[]) {
     if (args.flags & SYM_TABLE) {
         display_symbol_table();
     }
-    display_quad_table(); //debug
+    if (DEBUG) {
+        display_quad_table();
+    }
 
     CHECK(close(args.fd));
     free(string_table.strings);
@@ -1862,7 +1905,8 @@ int main (int argc, char * argv[]) {
 /* TODO LIST
 
 IMPORTANT
-
+ - TODO error if temp >= 8 -> handle_error()
+ - TODO option to display quad symbol (like -tos)
  - TODO if then else -> reduce reduce conflict -> A
  - TODO split files -> ?
  - TODO put grammar "instruction" in function in a other file -S ?

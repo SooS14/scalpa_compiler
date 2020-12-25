@@ -93,7 +93,8 @@ void display_symbol(struct symbol_t *symbol, int index, int n) {
             printf("%i,", symbol->type.func.index_param[j]);
         }
         printf("] )");
-        printf(" quad = %i", symbol->type.func.index_quad);
+        printf(" quad = [%i,%i]", 
+            symbol->type.func.quad_start, symbol->type.func.quad_end);
         break;
 
     case PARAM_T:
@@ -319,7 +320,7 @@ void add_func_ident_table(char *ident,
     new_symbol->ident = ident;
     new_symbol->scope = 0;
     new_symbol->type.func.atomic_type = atomictype;
-    new_symbol->type.func.index_quad = quad_table.nextquad;
+    new_symbol->type.func.quad_start = quad_table.nextquad;
     new_symbol->type.func.nb_param = list_len(parlist);
     if (list_len(parlist) != 0) {
         new_symbol->type.func.index_param = 
