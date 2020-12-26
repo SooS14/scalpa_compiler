@@ -1,7 +1,8 @@
-program TEST
+program invalid_ret_fun
     
-    var a1 : int;
-    a1 := "soos";
+    var a1,b2 : int;
+	var c1 : bool;
+    
 
 begin
 	a1 := 1;
