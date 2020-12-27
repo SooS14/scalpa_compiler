@@ -1,5 +1,5 @@
-(* Ceci est un exemple de code SCALPA *)
-program maxi
+
+program sierpinski
     var i,j : int;
     var temp1, temp2 : int;
     var size : int;
