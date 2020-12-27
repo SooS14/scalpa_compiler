@@ -1,7 +1,0 @@
-(* Ceci est un exemple de code SCALPA *)
-program maxi
-var i,j,max : int;
-var a : bool;
-begin
-max := a + (i+j);
-end

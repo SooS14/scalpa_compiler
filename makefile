@@ -23,7 +23,6 @@ args-parser.o : args-parser.c args-parser.h
 mips.o : mips.c mips.h
 	gcc -c mips.c -o mips.o
 	
-	
 y.tab.o: $(TARGET).y
 	yacc $(YACCFLAGS) $(TARGET).y
 	gcc -c y.tab.c

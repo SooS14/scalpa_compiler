@@ -17,6 +17,8 @@
 
 #define INIT_TABLE_SIZE 1024
 
+#define DEBUG 1
+
 enum type_t {INT, BOOL, STRING}; // order is important
 enum atomic_type_t {INT_A, BOOL_A, VOID_A}; // order is important
 enum symbol_type_t {ATOMIC_TYPE, ARRAY_TYPE, FUNCTION_TYPE, PARAMETER_TYPE};

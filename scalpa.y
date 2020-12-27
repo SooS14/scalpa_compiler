@@ -16,8 +16,6 @@
 #include "expr.h"
 #include "mips.h"
 
-#define DEBUG 1
-
 struct symbol_table_t symbol_table;
 struct quad_table_t quad_table;
 struct string_table_t string_table;
@@ -34,8 +32,6 @@ int yylex_destroy(void);
 void yyerror(const char * msg);
 
 extern int current_line;
-
-
 
 %}
 %code requires {

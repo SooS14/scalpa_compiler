@@ -1,5 +1,0 @@
-program TEST
-    var i : int
-    function f(i1 : int) : int
-    var i : int;
-    ;

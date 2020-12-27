@@ -15,8 +15,6 @@
 #include "expr.h"
 #include "mips.h"
 
-#define DEBUG 1
-
 
 extern struct quad_table_t quad_table;
 extern struct symbol_table_t symbol_table;
