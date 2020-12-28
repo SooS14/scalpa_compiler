@@ -31,6 +31,10 @@ lex.yy.o: $(TARGET).l y.tab.h
 	lex $(TARGET).l
 	gcc -c lex.yy.c
 
+test:
+	make
+	./scalpa -tos -toq -version -h < demo/sierpinski
+
 clean:
 	$(RM) -f *.o y.tab.c y.tab.h lex.yy.c a.out $(TARGET)
 	$(RM) y.dot

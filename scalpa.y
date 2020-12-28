@@ -1143,12 +1143,6 @@ int main (int argc, char * argv[]) {
         display_quad_table();
     }
 
-/*
-    if (DEBUG) {
-        display_quad_table();
-    }
-*/
-
     CHECK(close(args.fd));
     free(string_table.strings);
     free_quad_table();
@@ -1160,10 +1154,8 @@ int main (int argc, char * argv[]) {
 /* TODO LIST
 
 IMPORTANT
- - TODO option to display quad symbol (like -tos)
  - TODO if then else -> reduce reduce conflict
  - TODO documenatation (verif + struct)
- - TODO verif readme
 
 OPTIONAL
 
@@ -1176,5 +1168,4 @@ verif :
  - system call check
  - remove useless command and test
  - -Wall -Werror -Wextra
-
 */

@@ -12,11 +12,12 @@
 void print_usage (void) {
     puts(
     "Usage:\n"
-    "-version :      members of the project\n"
-    "-toq :          prints the quad table\n"
-    "-tos :          prints the symbol table\n"
-    "-o <name> :     file to print the results\n"
-    "-h              prints help\n");
+    " -version :      display the name of the project members\n"
+    " -toq :          display the quadruplet table\n"
+    " -tos :          display the symbol table\n"
+    " -o <name> :     <name> is the custom output file,\n"
+    "                 by default mips program will be writen in output.s\n"
+    " -h              display help\n");
 }
 
 void display_version (void) {
@@ -70,6 +71,9 @@ void parse_args (int argc, char ** argv, args_t *args) {
             args->fd = test_file(argv[i+1]);
             args->file_name = argv[i+1];
             i++;
+        }
+        else if (strncmp(argv[i],"-h", 2) == 0) {
+            print_usage();
         }
         else {
             puts("Unknown option\n\n");
