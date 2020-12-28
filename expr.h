@@ -67,4 +67,18 @@ int get_index_array (int (*range_array)[2],
                      int len_range_list,
                      struct linked_list *exprlist);
 
+
+/**
+ * @brief check if parameters used in a function call, matchs the parameters of 
+ * this function in the table of symbol, exit with an apropriate message if it 
+ * doesn't matchs
+ * create "param" quadruplets for each parameter given to the function
+ * @param func_symbol symbol of called function
+ * @param param_list list of call's parameters
+ * @param func_name function name
+ * @return void
+ */
+void check_function_parameters(struct symbol_t func_symbol,
+                               struct linked_list *param_list,
+                               char *func_name);
 #endif

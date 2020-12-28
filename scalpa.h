@@ -98,8 +98,8 @@ struct param_t {
 };
 
 struct function_t {
-    int quad_start;
-    int quad_end;
+    int quad_start; // index of start of the function in quad table
+    int quad_end; // index of end of the function in quad table
     int nb_param; // number of paramater for a function
     int *index_param; // array of index of parameter of a function
     enum atomic_type_t atomic_type; // atomic type : int / bool / unit

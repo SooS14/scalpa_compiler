@@ -409,63 +409,7 @@ instr :
             handle_error("invalide use of [%s], [%s] isn't a function", $1, $1);
         }
         int nb_parameters = list_len($3);
-        if (cur_symbol.type.func.nb_param != nb_parameters) {
-            handle_error("arguments given in call of function [%s] are "
-                "different from [%s] type", $1, $1);
-        }
-        for (int i = 0; i < nb_parameters; i++) {
-            struct expr_t *expr_temp = (struct expr_t *)list_get_first($3);
-            struct param_t cur_param = 
-                symbol_table.symbols[ptr + 1 + i].type.param;
-            if (cur_param.typename->atomic_type != expr_temp->type) {
-                handle_error("arguments given in call of function [%s] are "
-                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
-            }
-            if (cur_param.typename->symbol_type == ARRAY_TYPE) {
-                if (cur_param.typename->symbol_type == ARRAY_TYPE && 
-                    !expr_temp->is_array) {
-                    handle_error("arguments given in call of function [%s] are "
-                        "different from [%s] type, for parameter [%i]", 
-                        $1, $1,i+1);
-                }
-                struct typename_t *arraytype_2;
-                switch (symbol_table.symbols[expr_temp->index_symbol_table]
-                        .var_func_par) {
-                case VAR_T:
-                    arraytype_2 = 
-                        symbol_table.symbols[expr_temp->index_symbol_table]
-                        .type.var.typename;
-                    break;
-                case PARAM_T:
-                    arraytype_2 = 
-                        symbol_table.symbols[expr_temp->index_symbol_table]
-                        .type.param.typename;
-                    break;
-                default:
-                    handle_error("arguments given in call of function [%s] are "
-                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
-                    break;
-                }
-                if (cur_param.typename->len_range_list != 
-                    arraytype_2->len_range_list) {
-                    handle_error("arguments given in call of function [%s] are "
-                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
-                }
-                for (int i = 0; i < arraytype_2->len_range_list; i++) {
-                    if ((arraytype_2->range_array[i][0] != 
-                        cur_param.typename->range_array[i][0]) ||
-                        (arraytype_2->range_array[i][1] != 
-                        cur_param.typename->range_array[i][1])) {
-                        handle_error("arguments given in call of function [%s]"
-                            "are different from [%s] type, for parameter [%i]", 
-                            $1, $1,i+1);
-                    }
-                }
-            }
-            gencode(PARAM_QUAD, *expr_temp, *expr_temp, *expr_temp);
-            list_pop($3);
-        }
-        list_free($3);
+        check_function_parameters(cur_symbol, $3, $1);
         struct expr_t expr_func;
         expr_func.quad_op_type = QO_VAR;
         expr_func.type = INT;
@@ -906,63 +850,7 @@ expr :
                 "inside an expression.", $1);
         }
         int nb_parameters = list_len($3);
-        if (cur_symbol.type.func.nb_param != nb_parameters) {
-            handle_error("arguments given in call of function [%s] are "
-                "different from [%s] type", $1, $1);
-        }
-        for (int i = 0; i < nb_parameters; i++) {
-            struct expr_t *expr_temp = (struct expr_t *)list_get_first($3);
-            struct param_t cur_param = 
-                symbol_table.symbols[ptr + 1 + i].type.param;
-            if (cur_param.typename->atomic_type != expr_temp->type) {
-                handle_error("arguments given in call of function [%s] are "
-                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
-            }
-            if (cur_param.typename->symbol_type == ARRAY_TYPE) {
-                if (cur_param.typename->symbol_type == ARRAY_TYPE && 
-                    !expr_temp->is_array) {
-                    handle_error("arguments given in call of function [%s] are "
-                        "different from [%s] type, for parameter [%i]", 
-                        $1, $1,i+1);
-                }
-                struct typename_t *arraytype_2;
-                switch (symbol_table.symbols[expr_temp->index_symbol_table]
-                        .var_func_par) {
-                case VAR_T:
-                    arraytype_2 = 
-                        symbol_table.symbols[expr_temp->index_symbol_table]
-                        .type.var.typename;
-                    break;
-                case PARAM_T:
-                    arraytype_2 = 
-                        symbol_table.symbols[expr_temp->index_symbol_table]
-                        .type.param.typename;
-                    break;
-                default:
-                    handle_error("arguments given in call of function [%s] are "
-                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
-                    break;
-                }
-                if (cur_param.typename->len_range_list != 
-                    arraytype_2->len_range_list) {
-                    handle_error("arguments given in call of function [%s] are "
-                    "different from [%s] type, for parameter [%i]", $1, $1,i+1);
-                }
-                for (int i = 0; i < arraytype_2->len_range_list; i++) {
-                    if ((arraytype_2->range_array[i][0] != 
-                        cur_param.typename->range_array[i][0]) ||
-                        (arraytype_2->range_array[i][1] != 
-                        cur_param.typename->range_array[i][1])) {
-                        handle_error("arguments given in call of function [%s]"
-                            "are different from [%s] type, for parameter [%i]", 
-                            $1, $1,i+1);
-                    }
-                }
-            }
-            gencode(PARAM_QUAD, *expr_temp, *expr_temp, *expr_temp);
-            list_pop($3);
-        }
-        list_free($3);
+        check_function_parameters(cur_symbol, $3, $1);
         $$.is_array = 0;
         $$.quad_op_type = QO_TEMP;
         $$.type = cur_symbol.type.func.atomic_type;
@@ -1266,28 +1154,14 @@ int main (int argc, char * argv[]) {
 /* TODO LIST
 
 IMPORTANT
- - TODO error if temp >= 8 -> handle_error()
  - TODO option to display quad symbol (like -tos)
- - TODO if then else -> reduce reduce conflict -> A
- - TODO split files -> ?
- - TODO put grammar "instruction" in function in a other file -S ?
- - TODO do an error test for each handle_error -> S
- - TODO documenatation and test files -> S
+ - TODO if then else -> reduce reduce conflict
+ - TODO documenatation (verif + struct)
+ - TODO verif readme
 
 OPTIONAL
 
  - TODO ref param
- - TODO in gencode argument should be of type expr_t * and accept NULL pointers
- - TODO verif xor with subject 2019-2020
-
-Q : rename linked_list by linked_list_t ?
-Q : (2^3)*9 != 2^3*9 priority ?
-Q : src include dir ?
-Q : cste string regular expression bug for  "//" valid, "/" not valid,
-    add single quote example " '"' " is a valid syntaxe
-Q : getopt.h for args ?
-Q : test if output file is part of the source code ?
-Q : hash table ?
 
 verif :
  - yacc warning
@@ -1296,7 +1170,5 @@ verif :
  - system call check
  - remove useless command and test
  - -Wall -Werror -Wextra
-
-Do a real README file
 
 */

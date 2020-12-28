@@ -209,3 +209,70 @@ int get_index_array (int (*range_array)[2],
     gencode (OPB_STAR_QUAD, res_expr, nbw, res_expr);
     return temp_ptr;
 }
+
+void check_function_parameters(struct symbol_t func_symbol,
+                               struct linked_list *param_list,
+                               char *func_name) {
+    int ptr = is_symbol_in_table(func_name, 0);
+    int nb_parameters = list_len(param_list);
+    if (func_symbol.type.func.nb_param != nb_parameters) {
+        handle_error("arguments given in call of function [%s] are "
+            "different from [%s] type", func_name, func_name);
+    }
+    for (int i = 0; i < nb_parameters; i++) {
+        struct expr_t *expr_temp = (struct expr_t *)list_get_first(param_list);
+        struct param_t cur_param = 
+            symbol_table.symbols[ptr + 1 + i].type.param;
+        if (cur_param.typename->atomic_type != expr_temp->type) {
+            handle_error("arguments given in call of function [%s] are "
+                "different from [%s] type, for parameter [%i]", 
+                func_name, func_name,i+1);
+        }
+        if (cur_param.typename->symbol_type == ARRAY_TYPE) {
+            if (cur_param.typename->symbol_type == ARRAY_TYPE && 
+                !expr_temp->is_array) {
+                handle_error("arguments given in call of function [%s] are "
+                    "different from [%s] type, for parameter [%i]", 
+                    func_name, func_name,i+1);
+            }
+            struct typename_t *arraytype_2;
+            switch (symbol_table.symbols[expr_temp->index_symbol_table]
+                    .var_func_par) {
+            case VAR_T:
+                arraytype_2 = 
+                    symbol_table.symbols[expr_temp->index_symbol_table]
+                    .type.var.typename;
+                break;
+            case PARAM_T:
+                arraytype_2 = 
+                    symbol_table.symbols[expr_temp->index_symbol_table]
+                    .type.param.typename;
+                break;
+            default:
+                handle_error("arguments given in call of function [%s] are "
+                "different from [%s] type, for parameter [%i]", 
+                func_name, func_name,i+1);
+                break;
+            }
+            if (cur_param.typename->len_range_list != 
+                arraytype_2->len_range_list) {
+                handle_error("arguments given in call of function [%s] are "
+                "different from [%s] type, for parameter [%i]", 
+                func_name, func_name,i+1);
+            }
+            for (int i = 0; i < arraytype_2->len_range_list; i++) {
+                if ((arraytype_2->range_array[i][0] != 
+                    cur_param.typename->range_array[i][0]) ||
+                    (arraytype_2->range_array[i][1] != 
+                    cur_param.typename->range_array[i][1])) {
+                    handle_error("arguments given in call of function [%s]"
+                        "are different from [%s] type, for parameter [%i]", 
+                        func_name, func_name,i+1);
+                }
+            }
+        }
+        gencode(PARAM_QUAD, *expr_temp, *expr_temp, *expr_temp);
+        list_pop(param_list);
+    }
+    list_free(param_list);
+}

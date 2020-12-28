@@ -366,5 +366,12 @@ void complete_labels() {
 int newtemp(int mode) {
     static int ptr = -1;
     ptr = (mode ? -1 : ptr + 1);
+    if (ptr >= 8) {
+        handle_error(
+            "\nExpression is too complicated, more than seven temporary "
+            "variable are needed.\nPlease try to split the expression or "
+            "rewrite it.\n(no algorithm to reduce the number of temp are"
+            "implemented yet)");
+    }
     return ptr;
 }
