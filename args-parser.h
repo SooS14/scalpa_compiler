@@ -6,6 +6,7 @@ typedef enum flags_t {
     VERSION = 1,
     SYM_TABLE = 1 << 1,
     OUT_FILE = 1 << 2,
+    QUA_TABLE = 1 << 3,
 } flags_t;
 
 typedef struct args_t {

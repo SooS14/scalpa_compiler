@@ -13,6 +13,7 @@ void print_usage (void) {
     puts(
     "Usage:\n"
     "-version :      members of the project\n"
+    "-toq :          prints the quad table\n"
     "-tos :          prints the symbol table\n"
     "-o <name> :     file to print the results\n"
     "-h              prints help\n");
@@ -60,6 +61,9 @@ void parse_args (int argc, char ** argv, args_t *args) {
         }
         else if (strncmp(argv[i],"-tos", 4) == 0) {
             args->flags |= SYM_TABLE;
+        }
+        else if (strncmp(argv[i],"-toq", 4) == 0) {
+            args->flags |= QUA_TABLE;
         }
         else if (strncmp(argv[i],"-o", 2) == 0) {
             args->flags |= OUT_FILE;

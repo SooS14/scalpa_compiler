@@ -1139,9 +1139,15 @@ int main (int argc, char * argv[]) {
     if (args.flags & SYM_TABLE) {
         display_symbol_table();
     }
+    if (args.flags & QUA_TABLE) {
+        display_quad_table();
+    }
+
+/*
     if (DEBUG) {
         display_quad_table();
     }
+*/
 
     CHECK(close(args.fd));
     free(string_table.strings);

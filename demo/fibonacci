@@ -3,7 +3,7 @@ program fibonacci
 	var f1, f2, ftemp, n, count  : int;
 
 begin
-	f1 := 1;
+	f1 := 0;
 	f2 := 1;
 	
 	read n;
@@ -16,5 +16,6 @@ begin
 		count := count + 1;		
 	end;
 	
-	write f2;
+	write f1;
+	write "\n";
 end
