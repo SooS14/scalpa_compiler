@@ -2,6 +2,7 @@ program bool_array
 	var tab1 : array[0..4] of bool;
 	var tab2 : array[0..4] of bool;
 	var i : int;
+	var t0 : int;
 	
 begin	
 	tab1[0] := true;
@@ -18,7 +19,7 @@ begin
 	write "test or : \n";
 	while i < 4 do
 	begin
-		write tab2[i] or tab1[i];
+		write tab1[i] or tab2[i];
 		write "\n";
 		i := i + 1;
 	end;
@@ -27,7 +28,7 @@ begin
 	write "test and : \n";
 	while i < 4 do
 	begin
-		write tab2[i] and tab1[i];
+		write tab1[i] and tab2[i];
 		write "\n";
 		i := i + 1;
 	end;
@@ -36,7 +37,7 @@ begin
 	write "test not or : \n";
 	while i < 4 do
 	begin
-		write not (tab2[i] or tab1[i]);
+		write not (tab1[i] or tab2[i]);
 		write "\n";
 		i := i + 1;
 	end;
@@ -45,17 +46,9 @@ begin
 	write "test not and : \n";
 	while i < 4 do
 	begin
-		write not (tab2[i] and tab1[i]);
+		write not (tab1[i] and tab2[i]);
 		write "\n";
 		i := i + 1;
 	end;
-
-	i := 0;	
-	write "test xor : \n";
-	while i < 4 do
-	begin
-		write tab2[i] xor tab1[i];
-		write "\n";
-		i := i + 1;
-	end;
+	
 end

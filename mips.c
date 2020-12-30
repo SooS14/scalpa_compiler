@@ -531,8 +531,17 @@ void write_instr(int i) {
             break;
 
         case PARAM_QUAD:
-            dprintf(fd_out, "\taddiu $sp, $sp, -4\n");
-            dprintf(fd_out, "\tsw $t%i, 0($sp)\n", quad.op1.temp.ptr);
+            if (quad.op1.quad_op_type == QO_CST)
+            {
+                dprintf(fd_out, "\taddiu $sp, $sp, -4\n");
+                dprintf(fd_out, "\tli $t9, %i\n", quad.op1.const_int);
+                dprintf(fd_out, "\tsw $t9, 0($sp)\n");
+            }
+            else
+            {
+                dprintf(fd_out, "\taddiu $sp, $sp, -4\n");
+                dprintf(fd_out, "\tsw $t%i, 0($sp)\n", quad.op1.temp.ptr);   
+            }
             break;
 
         case RETURN_UNIT_QUAD:

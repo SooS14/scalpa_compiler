@@ -91,7 +91,7 @@ int current_line = 1;
 "while"         return WHILE;
 "do"            return DO;
 
-[a-zA-Z_][a-zA-Z_1-9]* {
+[a-zA-Z_][a-zA-Z_0-9]* {
     yylval.str_u = malloc(yyleng+1);
     MCHECK(yylval.str_u);
     strncpy(yylval.str_u , yytext, yyleng);

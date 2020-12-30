@@ -1091,6 +1091,9 @@ noreturn void handle_error(const char * msg, ...) {
     fprintf(stderr, "\n");
     va_end(ap);
     fprintf(stderr, "Compiler stop at line [%i].\n", current_line);
+    
+    fprintf(stderr, "\n\n");
+    display_quad_table();
 
     exit(EXIT_FAILURE);
 }
