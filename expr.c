@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 extern struct symbol_table_t symbol_table;
+extern struct quad_table_t quad_table;
 
 void get_operator_str (int op, char (*str_op)[5]) {
     switch(op) {
@@ -78,7 +79,7 @@ struct expr_t compute_opb_const_expr (struct expr_t expr1,
     return result;
 }
 
-struct expr_t compute_opu_const_expr (struct expr_t expr, int opu) {
+struct expr_t compute_opu_const_expr (struct expr_t expr) {
     struct expr_t result;
     result.quad_op_type = QO_CST;
     result.is_array = 0;
@@ -223,7 +224,7 @@ void check_function_parameters(struct symbol_t func_symbol,
         struct expr_t *expr_temp = (struct expr_t *)list_get_first(param_list);
         struct param_t cur_param = 
             symbol_table.symbols[ptr + 1 + i].type.param;
-        if (cur_param.typename->atomic_type != expr_temp->type) {
+        if ((int)cur_param.typename->atomic_type != (int)expr_temp->type) {
             handle_error("arguments given in call of function [%s] are "
                 "different from [%s] type, for parameter [%i]", 
                 func_name, func_name,i+1);
@@ -270,6 +271,12 @@ void check_function_parameters(struct symbol_t func_symbol,
                         func_name, func_name,i+1);
                 }
             }
+        }
+        if (expr_temp->type == BOOL) {
+            complete_quad_list(expr_temp->true, quad_table.nextquad);
+            free_quad_list(expr_temp->true);
+            complete_quad_list(expr_temp->false, quad_table.nextquad);
+            free_quad_list(expr_temp->false);
         }
         gencode(PARAM_QUAD, *expr_temp, *expr_temp, *expr_temp);
         list_pop(param_list);

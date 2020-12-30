@@ -116,7 +116,7 @@ struct symbol_t {
     //length of the identifier name
     int ident_length;
     // 0 if declared, 1 if a value as been affected
-    enum var_func_par_t var_func_par; // TODO remane 
+    enum var_func_par_t var_func_par;
     union {
         struct param_t param;
         struct function_t func;

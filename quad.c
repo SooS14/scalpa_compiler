@@ -38,8 +38,8 @@ void display_quad_op(struct expr_t quad_op) {
     switch (quad_op.quad_op_type) {
         case QO_CST  :
             switch (quad_op.type) {
-                case INT: printf(" %i ", quad_op.const_int); break;
-                case BOOL: printf(" %i ", quad_op.const_bool); break;
+                case INT:    printf(" %i ", quad_op.const_int); break;
+                case BOOL:   printf(" %i ", quad_op.const_bool); break;
                 case STRING: printf(" %s ", quad_op.const_string); break;
             } 
             break;
@@ -337,11 +337,7 @@ void gencode_goto (int target) {
 }
 
 void add_exit () {
-    struct expr_t op;
     quad_table.quads[quad_table.nextquad].instruction = EXIT_QUAD;
-    quad_table.quads[quad_table.nextquad].op1 =op;
-    quad_table.quads[quad_table.nextquad].op1 = op;
-    quad_table.quads[quad_table.nextquad].res = op;
     quad_table.quads[quad_table.nextquad].res_type = 0;
     quad_table.quads[quad_table.nextquad].is_label = 0;
     quad_table.nextquad ++;

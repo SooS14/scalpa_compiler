@@ -46,7 +46,7 @@ int test_file (char *name) {
             handle_error("the file is not regular");
     }
     CHECK((access(name, W_OK)));
-    CHECK((fd = open(name, O_RDWR | O_TRUNC)) == -1);
+    CHECK(fd = open(name, O_RDWR | O_TRUNC));
 
     return fd;
 }

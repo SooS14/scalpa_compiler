@@ -42,6 +42,8 @@ void write_instr(int i) {
                 dprintf(fd_out, "#%i,\tAFF_QUAD\n", i);         break;
             case IF_QUAD :
                 dprintf(fd_out, "#%i,\tIF_QUAD\n", i);          break;
+            case IF_LT_QUAD :
+                dprintf(fd_out, "#%i,\tIF_LT_QUAD\n", i);       break;
             case IF_GT_QUAD :
                 dprintf(fd_out, "#%i,\tIF_GT_QUAD\n", i);       break;
             case IF_LT_EQ_QUAD :
@@ -112,6 +114,7 @@ void write_instr(int i) {
                         symbol_table.symbols[quad.res.var.ptr].ident,
                         symbol_table.symbols[quad.res.var.ptr].scope);
                     break;
+                default: break;
                 }
                 break;
             
@@ -170,6 +173,8 @@ void write_instr(int i) {
                     break;
                 }
                 break;
+
+            default: break;
             }
             break;
         
@@ -531,14 +536,12 @@ void write_instr(int i) {
             break;
 
         case PARAM_QUAD:
-            if (quad.op1.quad_op_type == QO_CST)
-            {
+            if (quad.op1.quad_op_type == QO_CST) {
                 dprintf(fd_out, "\taddiu $sp, $sp, -4\n");
                 dprintf(fd_out, "\tli $t9, %i\n", quad.op1.const_int);
                 dprintf(fd_out, "\tsw $t9, 0($sp)\n");
             }
-            else
-            {
+            else {
                 dprintf(fd_out, "\taddiu $sp, $sp, -4\n");
                 dprintf(fd_out, "\tsw $t%i, 0($sp)\n", quad.op1.temp.ptr);   
             }

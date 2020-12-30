@@ -2,8 +2,6 @@ program binary_test
 	var count, max, sum, pow : int;
 
 begin
-	t[0] := true;
-	write t[0];
 	read max;
 	count := 0;
 	sum := 0;

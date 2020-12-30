@@ -34,13 +34,10 @@ struct expr_t compute_opb_const_expr (struct expr_t expr1,
 
 /**
  * @brief Compute and return the result of : opu expr
- * exit if expr have a type that doesn't support opu
- * example : opu string, - bool, not int
  * @param expr struct containing the operand's attributes
- * @param opu operator code
  * @return a struct containing the result of the operation
  */
-struct expr_t compute_opu_const_expr (struct expr_t expr, int opu);
+struct expr_t compute_opu_const_expr (struct expr_t expr);
 
 
 /**

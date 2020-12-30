@@ -292,14 +292,14 @@ instr :
         }
         if ($1.symbol_type != ARRAY_TYPE) {
             if (symbol_table.symbols[$1.ptr].var_func_par == PARAM_T) {
-                if ($3.type != symbol_table.symbols[$1.ptr].type.param
+                if ((int)$3.type != (int)symbol_table.symbols[$1.ptr].type.param
                         .typename->atomic_type) {
                     handle_error("type of expr doesn't match in assigment "
                         "to [%s]", symbol_table.symbols[$1.ptr].ident);
                 }
             }
             else {
-                if ($3.type != symbol_table.symbols[$1.ptr].type.var
+                if ((int)$3.type != (int)symbol_table.symbols[$1.ptr].type.var
                         .typename->atomic_type) {
                     handle_error("type of expr doesn't match in assigment "
                         "to [%s]", symbol_table.symbols[$1.ptr].ident);
@@ -345,8 +345,8 @@ instr :
         }
     | RETURN expr {
         int func_ptr = symbol_table.cur_symbol_scope;
-        if (symbol_table.symbols[func_ptr].type.func.atomic_type != 
-            $2.type) {
+        if ((int)symbol_table.symbols[func_ptr].type.func.atomic_type != 
+            (int)$2.type) {
             handle_error("function [%s] and return expr have different types", 
                 symbol_table.symbols[func_ptr].ident);
         }
@@ -815,7 +815,7 @@ expr :
             handle_error("unary operator [-] forbidden for bool");
         }
         if ($2.quad_op_type == QO_CST && $2.type != BOOL) {
-            $$ = compute_opu_const_expr($2, $1);
+            $$ = compute_opu_const_expr($2);
         }
         else {
             if ($2.type == INT) {
@@ -926,7 +926,7 @@ expr :
         }
     | IDENT '[' exprlist ']' {
         int scope = symbol_table.cur_symbol_scope;
-        int ptr, temp_ptr;
+        int ptr;
         if ((ptr = is_symbol_in_table($1, scope)) == -1) {
             handle_error("variable [%s] is not declared in this scope", $1);
         }
@@ -1091,6 +1091,7 @@ noreturn void handle_error(const char * msg, ...) {
     fprintf(stderr, "\n");
     va_end(ap);
     fprintf(stderr, "Compiler stop at line [%i].\n", current_line);
+
     exit(EXIT_FAILURE);
 }
 
@@ -1149,22 +1150,3 @@ int main (int argc, char * argv[]) {
     yylex_destroy();
     return c;
 }
-
-/* TODO LIST
-
-IMPORTANT
- - TODO if then else -> reduce reduce conflict
- - TODO documenatation (verif + struct)
-
-OPTIONAL
-
- - TODO ref param
-
-verif :
- - yacc warning
- - valgrind
- - malloc check
- - system call check
- - remove useless command and test
- - -Wall -Werror -Wextra
-*/
