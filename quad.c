@@ -30,14 +30,7 @@ void display_instruction(int instr) {
         case OPB_STAR_QUAD:   printf("*");       break;
         case OPB_DIVIDE_QUAD: printf("/");       break;
         case OPB_POW_QUAD:    printf("^");       break;
-        case OPB_LT_QUAD:     printf("<");       break;
-        case OPB_LT_EQ_QUAD:  printf("<=");      break;
-        case OPB_GT_QUAD:     printf(">");       break;
-        case OPB_GT_EQ_QUAD:  printf(">=");      break;
-        case OPB_EQ_QUAD:     printf("==");      break;
-        case OPB_DIFF_QUAD:   printf("!=");      break;
         case OPU_MINUS_QUAD:  printf("-");       break;
-        case OPU_NOT_QUAD:    printf("not");     break;
     }
 }
 
@@ -45,8 +38,8 @@ void display_quad_op(struct expr_t quad_op) {
     switch (quad_op.quad_op_type) {
         case QO_CST  :
             switch (quad_op.type) {
-                case INT: printf(" %i ", quad_op.const_int); break;
-                case BOOL: printf(" %i ", quad_op.const_bool); break;
+                case INT:    printf(" %i ", quad_op.const_int); break;
+                case BOOL:   printf(" %i ", quad_op.const_bool); break;
                 case STRING: printf(" %s ", quad_op.const_string); break;
             } 
             break;
@@ -58,7 +51,11 @@ void display_quad_op(struct expr_t quad_op) {
             printf(" ");
             break;
         case QO_TEMP :
-            printf(" %%T%i ", quad_op.temp_ptr);
+            printf(" %%T%i ", quad_op.temp.ptr);
+            if (quad_op.temp.symbol_type == ARRAY_TYPE && !quad_op.is_array) {
+                printf("[%%T%i]", quad_op.temp.ptr_to_index);
+            }
+            printf(" ");
             break;
     }
 }
@@ -88,8 +85,7 @@ void display_quad(struct quad_t quad) {
         display_quad_op(quad.op1);
         printf("]\n");
     }
-    else if(quad.instruction == OPU_MINUS_QUAD ||
-            quad.instruction == OPU_NOT_QUAD) {
+    else if(quad.instruction == OPU_MINUS_QUAD) {
         printf("[");
         display_quad_op(quad.res);
         printf(":= ");
@@ -135,6 +131,9 @@ void display_quad(struct quad_t quad) {
     }
     else if (quad.instruction == RETURN_UNIT_QUAD) {
         printf("[ return ]\n");
+    }
+    else if (quad.instruction == EXIT_QUAD) {
+        printf("[ exit ]\n");
     }
     else{
         printf("[");
@@ -232,8 +231,7 @@ void free_quad(struct quad_t quad) {
         free_quad_op(quad.res);
         free_quad_op(quad.op1);
     }
-    else if(quad.instruction == OPU_MINUS_QUAD ||
-            quad.instruction == OPU_NOT_QUAD) {
+    else if(quad.instruction == OPU_MINUS_QUAD) {
         free_quad_op(quad.res);
         free_quad_op(quad.op1);
     }
@@ -261,6 +259,9 @@ void free_quad(struct quad_t quad) {
     else if (quad.instruction == RETURN_UNIT_QUAD) {
         return;
     }
+    else if (quad.instruction == EXIT_QUAD) {
+        return;
+    }
     else {
         free_quad_op(quad.res);
         free_quad_op(quad.op1);
@@ -281,13 +282,12 @@ int get_instr(int op, int is_unary) {
         case OPB_STAR:   return OPB_STAR_QUAD;   break;
         case OPB_DIVIDE: return OPB_DIVIDE_QUAD; break;
         case OPB_POW:    return OPB_POW_QUAD;    break;
-        case OPB_L:      return IF_LT_QUAD;     break;
-        case OPB_L_EQ:   return IF_LT_EQ_QUAD;  break;
-        case OPB_G:      return IF_GT_QUAD;     break;
-        case OPB_G_EQ:   return IF_GT_EQ_QUAD;  break;
-        case OPB_EQ:     return IF_EQ_QUAD;     break;
-        case OPB_DIFF:   return IF_DIFF_QUAD;   break;
-        case OPU_NOT:    return OPU_NOT_QUAD;    break;
+        case OPB_L:      return IF_LT_QUAD;      break;
+        case OPB_L_EQ:   return IF_LT_EQ_QUAD;   break;
+        case OPB_G:      return IF_GT_QUAD;      break;
+        case OPB_G_EQ:   return IF_GT_EQ_QUAD;   break;
+        case OPB_EQ:     return IF_EQ_QUAD;      break;
+        case OPB_DIFF:   return IF_DIFF_QUAD;    break;
         case OP_MINUS:   return is_unary ? OPU_MINUS_QUAD : OPB_MINUS_QUAD;
         break;
     }
@@ -304,15 +304,16 @@ void gencode (int instruction,
             quad_table.table_size * sizeof(struct quad_t));
         MCHECK(quad_table.quads);
     }
-    quad_table.quads[quad_table.nextquad].quad_4 = (instruction == GOTO_QUAD ||
-         instruction == IF_GT_QUAD || instruction == IF_LT_QUAD ||
-         instruction == IF_LT_EQ_QUAD || instruction == IF_GT_EQ_QUAD ||
-         instruction == IF_EQ_QUAD || instruction == IF_DIFF_QUAD || 
-         instruction ==IF_QUAD);
+    quad_table.quads[quad_table.nextquad].is_label = 0;
+    quad_table.quads[quad_table.nextquad].res_type = 
+        (instruction == GOTO_QUAD || instruction == IF_GT_QUAD || 
+         instruction == IF_LT_QUAD || instruction == IF_LT_EQ_QUAD ||
+         instruction == IF_GT_EQ_QUAD || instruction == IF_EQ_QUAD ||
+         instruction == IF_DIFF_QUAD || instruction ==IF_QUAD);
     quad_table.quads[quad_table.nextquad].instruction = instruction;
     quad_table.quads[quad_table.nextquad].op1 = op1;
     quad_table.quads[quad_table.nextquad].op2 = op2;
-    if (quad_table.quads[quad_table.nextquad].quad_4) {
+    if (quad_table.quads[quad_table.nextquad].res_type) {
         quad_table.quads[quad_table.nextquad].target = GOTO_INCOMPLETE;
     }
     else {
@@ -328,14 +329,45 @@ void gencode_goto (int target) {
             quad_table.table_size * sizeof(struct quad_t));
         MCHECK(quad_table.quads);
     }
+    quad_table.quads[quad_table.nextquad].is_label = 0;
     quad_table.quads[quad_table.nextquad].instruction = GOTO_QUAD;
-    quad_table.quads[quad_table.nextquad].quad_4 = 1;
+    quad_table.quads[quad_table.nextquad].res_type = 1;
     quad_table.quads[quad_table.nextquad].target = target;
     quad_table.nextquad ++;
+}
+
+void add_exit () {
+    quad_table.quads[quad_table.nextquad].instruction = EXIT_QUAD;
+    quad_table.quads[quad_table.nextquad].res_type = 0;
+    quad_table.quads[quad_table.nextquad].is_label = 0;
+    quad_table.nextquad ++;
+}
+
+void complete_labels() {
+    for (int i = 0; i < quad_table.nextquad; i++) {
+        if (quad_table.quads[i].res_type) {
+            if (quad_table.quads[i].target == -1) {
+                handle_error("imcoplete goto at quad %i", i); // can't happen
+            }
+            else if (quad_table.quads[i].target >= quad_table.nextquad) {
+                handle_error("goto out of range at quad %i", i); // can't happen
+            }
+            else {
+                quad_table.quads[quad_table.quads[i].target].is_label = 1;
+            }
+        }
+    }
 }
 
 int newtemp(int mode) {
     static int ptr = -1;
     ptr = (mode ? -1 : ptr + 1);
+    if (ptr >= 8) {
+        handle_error(
+            "\nExpression is too complicated, more than seven temporary "
+            "variable are needed.\nPlease try to split the expression or "
+            "rewrite it.\n(no algorithm to reduce the number of temp are"
+            "implemented yet)");
+    }
     return ptr;
 }

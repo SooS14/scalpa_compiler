@@ -1,4 +1,0 @@
-program TEST
-    var test_var : int
-    function f1(test_param : unit) : int
-    ;

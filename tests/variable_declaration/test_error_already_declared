@@ -1,8 +1,0 @@
-program TEST
-    var test1, test2 , test3 ,vartest1,vartest2: int;
-    var b1 : bool;
-    var b11, b1, b3, b4 : bool;
-    var testarray1 : array [1..5] of int;
-    var testarray2,testarray3 : array[-4..4, 0..10] of int;
-    var arraylarge : array[-4..4, 0..10, 0..10, 0..10] of bool;
-    var arraytest,testarr : array[-4..4] of bool;

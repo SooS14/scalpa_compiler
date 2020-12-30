@@ -17,6 +17,8 @@
 
 #define INIT_TABLE_SIZE 1024
 
+#define DEBUG 1
+
 enum type_t {INT, BOOL, STRING}; // order is important
 enum atomic_type_t {INT_A, BOOL_A, VOID_A}; // order is important
 enum symbol_type_t {ATOMIC_TYPE, ARRAY_TYPE, FUNCTION_TYPE, PARAMETER_TYPE};
@@ -45,6 +47,9 @@ struct lvalue_t {
     // temp ptr to index of the element in the array 
     // equivalent of depl in the lecture
     int ptr_to_index;
+    // type of lvalue -> redondant with expr_t but for array we need this, 
+    // because array identifier is sorted in a temp.
+    enum type_t type;
 };
 
 struct expr_t {
@@ -57,10 +62,13 @@ struct expr_t {
             int const_bool;
         };
         struct lvalue_t var;
-        int temp_ptr;
+        struct lvalue_t temp;
     };
     // 1 if lvalue is a array, else 0
     int is_array;
+    // for array store index in symbol table, to have an access to rangelist
+    int index_symbol_table;
+
     struct quad_list_t *true;
     struct quad_list_t *false;
 };
@@ -90,7 +98,8 @@ struct param_t {
 };
 
 struct function_t {
-    int index_quad;
+    int quad_start; // index of start of the function in quad table
+    int quad_end; // index of end of the function in quad table
     int nb_param; // number of paramater for a function
     int *index_param; // array of index of parameter of a function
     enum atomic_type_t atomic_type; // atomic type : int / bool / unit
@@ -107,7 +116,7 @@ struct symbol_t {
     //length of the identifier name
     int ident_length;
     // 0 if declared, 1 if a value as been affected
-    enum var_func_par_t var_func_par; // TODO remane 
+    enum var_func_par_t var_func_par;
     union {
         struct param_t param;
         struct function_t func;
@@ -133,6 +142,15 @@ struct symbol_table_t {
     // the index of the function
     int cur_symbol_scope;
     int quad_main;
+};
+
+struct string_table_t {
+    // size of symbol table (allocated)
+    int table_size;
+    // number of symbols in the table
+    int last_ident_index;
+    // array of strings
+    char **strings;
 };
 
 /**

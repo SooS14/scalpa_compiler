@@ -12,10 +12,12 @@
 void print_usage (void) {
     puts(
     "Usage:\n"
-    "-version :      members of the project\n"
-    "-tos :          prints the symbol table\n"
-    "-o <name> :     file to print the results\n"
-    "-h              prints help\n");
+    " -version :      display the name of the project members\n"
+    " -toq :          display the quadruplet table\n"
+    " -tos :          display the symbol table\n"
+    " -o <name> :     <name> is the custom output file,\n"
+    "                 by default mips program will be writen in output.s\n"
+    " -h              display help\n");
 }
 
 void display_version (void) {
@@ -44,7 +46,7 @@ int test_file (char *name) {
             handle_error("the file is not regular");
     }
     CHECK((access(name, W_OK)));
-    CHECK((fd = open(name, O_RDWR | O_TRUNC)) == -1);
+    CHECK(fd = open(name, O_RDWR | O_TRUNC));
 
     return fd;
 }
@@ -61,11 +63,17 @@ void parse_args (int argc, char ** argv, args_t *args) {
         else if (strncmp(argv[i],"-tos", 4) == 0) {
             args->flags |= SYM_TABLE;
         }
+        else if (strncmp(argv[i],"-toq", 4) == 0) {
+            args->flags |= QUA_TABLE;
+        }
         else if (strncmp(argv[i],"-o", 2) == 0) {
             args->flags |= OUT_FILE;
             args->fd = test_file(argv[i+1]);
             args->file_name = argv[i+1];
             i++;
+        }
+        else if (strncmp(argv[i],"-h", 2) == 0) {
+            print_usage();
         }
         else {
             puts("Unknown option\n\n");
