@@ -163,10 +163,9 @@ void write_instr(int i) {
                             quad.res.temp.ptr);
                     }
                     else {
-                        dprintf(fd_out, "\tlw $t%i, %s_%i\n",
+                        dprintf(fd_out, "\tmove $t%i, $t%i\n",
                             quad.res.temp.ptr,
-                            symbol_table.symbols[quad.op1.var.ptr].ident,
-                            symbol_table.symbols[quad.op1.var.ptr].scope);
+                            quad.op1.temp.ptr);
                     }
                     break;
                 }

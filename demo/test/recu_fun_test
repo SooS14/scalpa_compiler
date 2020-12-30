@@ -1,0 +1,3 @@
+program recu_fun_test
+	var t : array[0..5];
+	
