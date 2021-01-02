@@ -552,8 +552,20 @@ void write_instr(int i) {
             break;
 
         case RETURN_QUAD:
-            dprintf(fd_out, "\tmove $v0, $t%i\n", quad.res.temp.ptr);
-            dprintf(fd_out, "\tjr $ra\n\n");
+            if (quad.res.quad_op_type == QO_CST && quad.res.type == BOOL) {
+                dprintf(fd_out, "\tli $t9, %i\n", quad.res.const_bool);
+                dprintf(fd_out, "\tmove $v0, $t9\n");
+                dprintf(fd_out, "\tjr $ra\n\n");
+            }
+            else if (quad.res.quad_op_type == QO_CST && quad.res.type == INT) {
+                dprintf(fd_out, "\tli $t9, %i\n", quad.res.const_int);
+                dprintf(fd_out, "\tmove $v0, $t9\n");
+                dprintf(fd_out, "\tjr $ra\n\n");
+            }
+            else {
+                dprintf(fd_out, "\tmove $v0, $t%i\n", quad.res.temp.ptr);
+                dprintf(fd_out, "\tjr $ra\n\n");
+            }
             break;
 
         case EXIT_QUAD:
@@ -625,7 +637,7 @@ void write_functions() {
                     dprintf(fd_out, "\taddiu $sp, $sp, 4\n");
                 }
             }
-            for (int j = quad_start; j <= quad_end; j++) {
+            for (int j = quad_start; j < quad_end; j++) {
                 write_instr(j);
                 dprintf(fd_out, "\n");
             }

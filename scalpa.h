@@ -107,7 +107,6 @@ struct function_t {
 
 struct variable_t {
     struct typename_t *typename;
-    int initialiazed;
 };
 
 struct symbol_t {

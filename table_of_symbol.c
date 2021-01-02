@@ -93,7 +93,7 @@ void display_symbol(struct symbol_t *symbol, int index, int n) {
             printf("%i,", symbol->type.func.index_param[j]);
         }
         printf("] )");
-        printf(" quad = [%i,%i]", 
+        printf(" quad = [%i,%i[", 
             symbol->type.func.quad_start, symbol->type.func.quad_end);
         break;
 
@@ -247,7 +247,6 @@ void add_vardecl_table (struct linked_list *identlist,
         new_symbol->ident = malloc(new_symbol->ident_length);
         MCHECK(new_symbol->ident);
         strncpy(new_symbol->ident, new_ident_name, new_symbol->ident_length);
-        new_symbol->type.var.initialiazed = 0;
         new_symbol->type.var.typename = malloc(sizeof(struct typename_t));
         MCHECK(new_symbol->type.var.typename);
         copy_typename_table(new_symbol->type.var.typename, *_typename);
